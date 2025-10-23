@@ -1,0 +1,1 @@
+NOT_FOUND_LITERAL = "N/A"
