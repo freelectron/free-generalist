@@ -212,3 +212,6 @@ __marimo__/
 
 .DS_Store
 *.DS_Store
+
+# Do not include evalaution data
+evaluation

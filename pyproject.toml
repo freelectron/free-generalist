@@ -21,3 +21,8 @@ dependencies = [
     "yt-dlp>=2025.10.22",
 ]
 
+[dependency-groups]
+evaluation = [
+    "datasets>=4.3.0",
+]
+

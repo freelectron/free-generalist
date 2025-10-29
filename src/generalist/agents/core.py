@@ -42,7 +42,7 @@ class BaseAgentCapability:
         # 'self.name' correctly accesses the class attribute from the instance
         return f"{self.__class__.__name__}(name='{self.name}', activity='{self.activity}')"
     
-    def run(*args, **kwargs) -> AgentCapabilityOutput:
+    def run(self, *args, **kwargs) -> AgentCapabilityOutput:
         """
         Execute the main logic of the agent.
         """
@@ -78,7 +78,7 @@ class AgentCapabilityAudioProcessor(BaseAgentCapability):
         file_path, meta = download_audio("tempfile_audio", resource.link)
         logger.info(f"- {current_function()} -- Downloaded file to {file_path} with meta info {meta}.")
 
-        # transcirbes the file and returns just the text 
+        # transcribes the file and returns just the text
         result = transcribe_mp3_file(file_path)
 
         short_answers = [construct_short_answer(self.activity, result)] 
