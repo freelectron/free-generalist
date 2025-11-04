@@ -215,3 +215,10 @@ __marimo__/
 
 # Do not include evalaution data
 evaluation
+
+# MLFlow logs
+mlruns
+mlartifacts
+
+# Tempfiles
+*tempfile*

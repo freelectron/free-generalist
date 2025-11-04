@@ -10,14 +10,14 @@ from ..utils import current_function
 logger = logging.getLogger(__name__)
 
 
-def create_plan(task: str, resources:list[ContentResource]) -> str:
+def create_plan(task: str, resources: list[ContentResource]) -> str:
     """
-    Given a task, determine the next step that needs to be done to accomplish the task. 
-    The most important actions that are taken: 
+    Given a task, determine the next step that needs to be done to accomplish the task.
+    The most important actions that are taken:
      1. Define the goal: what result is asked to be produced.
-     2. List the steps: provide a short explanation for each action that needs to be taken.       
+     2. List the steps: provide a short explanation for each action that needs to be taken.
     """
-    
+
     prompt = f"""
 You are an expert project planner. Your task is to create a concise, step-by-step action plan to accomplish the given user's goal and available resources.
 
@@ -30,26 +30,53 @@ Available resources:
 
 Instructions:
 1. Clarify the Core Objective: Start by rephrasing the user's goal as a single, clear, and specific objective.
-2. Develop a Chronological Action Plan: Break down the objective into a logical sequence of high-level steps (aim for 1 or 2 steps).
+2. Extract Resources: Identify any URLs or URIs mentioned in the user's goal and list them as the resource. Rrovide a short description (content) and the link for the resource.
+3. Develop a Chronological Action Plan: Break down the objective into a logical sequence of high-level steps (aim for 1 or 2 steps).
 
-Example Output Format (ALWAS **JSON** ):
+Example Output Format (ALWAYS **JSON**):
 {{
   "objective": "Produce a plot with the sales data of the provided csv (/home/user_name/datat/company_balance_sheet.csv)",
+  "resource":
+    {{
+      "content": "CSV file containing company balance sheet data",
+      "link": "/home/user_name/datat/company_balance_sheet.csv"
+    }},
   "plan": [
     "Analyse the information on what columns are present in the csv and which ones represent sales",
     "Produce a piece of code that would only plot sales data"
   ]
 }}
+
+Another Example Output Format:
+{{
+  "objective": "Examine the video and extract the dialogue by Teal'c in response to the question 'Isn't that hot?'",
+  "resource": 
+    {{
+      "content": "a youtube video that needs to be downloaded",
+      "link": "https://www.youtube.com/watch?v=1htKBjuUWec"
+    }},
+  "plan": [
+    "Download the video from the provided URL",
+    "Extract the audio and transcribe it to text",
+    "Locate the part where the question is asked and Teal'c responds"
+  ]
+}}
+
 where
   "objective" 's value in the json is a clear, one-sentence summary of the end goal,
-  "plan" 's value in the json is a list **ALWAYS SEPARATED BY PYTHON NEWLINE CHARCTER** like 
+  "resource" 's value in the json is a dictionary, containing:
+    - "content": a brief description of what the resource is OR the contents of the file 
+    - "link": the URL or URI mentioned in the task
+  "plan" 's value in the json is a list **ALWAYS SEPARATED BY PYTHON NEWLINE CHARACTER** like 
   [
     "A short explanation of the first logical step", 
-    "Thjeconcluding step",
+    "The concluding step",
   ]
-  **IMPORTANT**: you should only include the minimum number of steps to accomplish the task (*strive for 1 or 2*), do not include varification steps.
-  **IMPORTANT**: do not include any json formating directives, output plain json string.
-"""    
+  **IMPORTANT**: you should only include the minimum number of steps to accomplish the task (*strive for 1 or 2*), do not include verification steps.
+  **IMPORTANT**: do not include any json formatting directives, output plain json string.
+  **IMPORTANT**: only include the resource that is explicitly mentioned in the user's goal/ask as URLs or URIs. 
+  If no resource (link or path) is mentioned, do not include resource key in the answer 
+"""
     task_response = llm.complete(prompt)
 
     return task_response.text
