@@ -90,7 +90,7 @@ def brave_search(query: str, max_results: int = 2):
         contains the search result details.
     """
 
-    def parse_search_results(html_content: str, n: int = 1) -> list[dict]:
+    def  parse_search_results(html_content: str, n: int = 1) -> list[dict]:
         """
         Parses the HTML content of a Brave search results page to extract
         the top 'n' search results.
@@ -141,6 +141,9 @@ def brave_search(query: str, max_results: int = 2):
     base_search_url = "https://search.brave.com/search?q="
     search_url = base_search_url + "+".join(query.split(" "))
     logger.info(f"- {current_function()} -- Searching url: {search_url}")
+    # FIXME: see if adding headers is a good solution to handle br encoding issue
+    # headers = {'Accept-Encoding': 'gzip, deflate'}  # Exclude 'br'
+    # response_search = requests.get(search_url, headers=headers)
     response_search = requests.get(search_url)
 
     results = parse_search_results(str(response_search.content), max_results)
@@ -211,7 +214,9 @@ def download_content(resource: WebSearchResult) -> str:
 
     # For this example, let's assume _encode_url_path is defined elsewhere
     # encoded_link = _encode_url_path(resource.link)
-    response = httpx.get(resource.link, timeout=15)
+    # FIXME: see if adding headers is a good solution to handle br encoding issue
+    headers = {'Accept-Encoding': 'gzip, deflate'}
+    response = httpx.get(resource.link, timeout=15, headers=headers)
     charset = response.encoding or 'utf-8'
     html_bytes = response.content
     html_content = html_bytes.decode(charset)
@@ -238,7 +243,7 @@ def web_search(question: str, links_per_query: int = 2) -> list[ContentResource]
 
     all_sources = []
     for query in candidate_queries:
-        search_results_for_query = brave_search(query, links_per_query) #duckduckgo_search(query, links_per_query)
+        search_results_for_query = brave_search(query, links_per_query) #duckduckgo_search(query, links_per_query) #
         all_sources.extend(search_results_for_query)
 
     unique_search_results = drop_non_unique_link(all_sources)
