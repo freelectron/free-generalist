@@ -28,6 +28,7 @@ evaluation = [
     "datasets>=4",
 ]
 
+#TODO
 # Add dependency group for the browser: now there is a conflict bwt llama-index and undetected :(
 
 [build-system]
