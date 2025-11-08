@@ -2,10 +2,10 @@ import os
 
 import yt_dlp
 
-from .. import logging
-from ..utils import current_function
+from ..utils.clog import get_logger
 
-logger = logging.getLogger(__name__)
+
+logger = get_logger(__name__)
 
 
 def download_audio_mp3(file_path:str, url:str, target_height:int=144):

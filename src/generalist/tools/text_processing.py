@@ -2,11 +2,10 @@
 from langchain_text_splitters import CharacterTextSplitter
 
 from ..models.core import llm
-from .. import logging
-from ..utils import current_function
+from ..utils.clog import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def task_with_text_llm(task: str, text: str) -> str:

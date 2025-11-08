@@ -1,9 +1,9 @@
 import whisper
 
-from .. import logging
+from ..utils.clog import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def transcribe_mp3_file(filepath: str) -> str:

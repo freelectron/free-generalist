@@ -8,11 +8,11 @@ from ..tools.data_model import ContentResource, ShortAnswer
 from ..tools.code import write_python_eda, run_code, write_python_code_task
 from ..tools.media_download import download_audio
 from ..tools.audio_transcribe import transcribe_mp3_file
+from ..utils.clog import get_logger
 from ..utils import current_function
-from .. import logging
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass

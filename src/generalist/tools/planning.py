@@ -4,10 +4,11 @@ from ..agents.core import AgentCapabilityAudioProcessor, AgentCapabilityCodeWrit
 from .data_model import Task
 from ..models.core import llm
 from ..tools.data_model import ContentResource
-from .. import logging
+from ..utils.clog import get_logger
 from ..utils import current_function
 
-logger = logging.getLogger(__name__)
+
+logger = get_logger(__name__)
 
 
 def create_plan(task: str, resources: list[ContentResource]) -> str:

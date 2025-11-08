@@ -222,3 +222,7 @@ mlartifacts
 
 # Tempfiles
 *tempfile*
+
+# All debug files
+/debug/
+/notebooks/logs/

@@ -8,10 +8,10 @@ from ..tools import NOT_FOUND_LITERAL
 from ..tools.data_model import ContentResource, WebSearchResult
 from ..models.core import llm
 from ..utils import current_function
-from .. import logging
+from ..utils.clog import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def question_to_queries(question: str, max_queries: int = 2) -> list[str]:
@@ -141,10 +141,9 @@ def brave_search(query: str, max_results: int = 2):
     base_search_url = "https://search.brave.com/search?q="
     search_url = base_search_url + "+".join(query.split(" "))
     logger.info(f"- {current_function()} -- Searching url: {search_url}")
-    # FIXME: see if adding headers is a good solution to handle br encoding issue
-    # headers = {'Accept-Encoding': 'gzip, deflate'}  # Exclude 'br'
-    # response_search = requests.get(search_url, headers=headers)
-    response_search = requests.get(search_url)
+    headers = {'Accept-Encoding': 'gzip, deflate'}  # Exclude 'br' encoding (brave started to return sometimes)
+    response_search = requests.get(search_url, headers=headers)
+    logger.finfo(f"- {current_function()} -- response_search: {response_search.content}")
 
     results = parse_search_results(str(response_search.content), max_results)
     found_resources = list()
