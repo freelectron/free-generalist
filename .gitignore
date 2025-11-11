@@ -226,3 +226,7 @@ mlartifacts
 # All debug files
 /debug/
 /notebooks/logs/
+
+
+#ignore static cache files (e.g., browser data)
+static/

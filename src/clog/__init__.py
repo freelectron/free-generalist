@@ -38,9 +38,9 @@ class CLogger(logging.Logger):
         if not file_path:
             debug_folder_path = os.environ.get("DEBUG_FOLDER_LOCATION", None)
             if not debug_folder_path:
-                    debug_folder_path = "./logs"
-                    if  not os.path.exists(debug_folder_path):
-                        os.makedirs("logs")
+                debug_folder_path = "./logs"
+                if  not os.path.exists(debug_folder_path):
+                    os.makedirs("logs")
             file_path =  os.path.join(debug_folder_path, f'{datetime.today().date().isoformat()}.log')
 
         self.console_handler = create_console_handler()

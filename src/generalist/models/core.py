@@ -11,7 +11,7 @@ llm = Ollama(
     request_timeout=REQUEST_TIMEOUT
 )
 
-
+# Note: only needed to get traces and logs
 class MLFlowLLMWrapper:
     """
     Generic class to wrap calls to llm with MLFlow logging.

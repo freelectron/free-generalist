@@ -2,7 +2,7 @@
 from langchain_text_splitters import CharacterTextSplitter
 
 from ..models.core import llm
-from ..utils.clog import get_logger
+from clog import get_logger
 
 
 logger = get_logger(__name__)

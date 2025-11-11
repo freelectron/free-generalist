@@ -2,7 +2,7 @@ import os
 
 import yt_dlp
 
-from ..utils.clog import get_logger
+from clog import get_logger
 
 
 logger = get_logger(__name__)

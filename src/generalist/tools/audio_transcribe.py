@@ -1,6 +1,6 @@
 import whisper
 
-from ..utils.clog import get_logger
+from clog import get_logger
 
 
 logger = get_logger(__name__)

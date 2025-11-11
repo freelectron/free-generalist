@@ -8,8 +8,8 @@ from ..tools.data_model import ContentResource, ShortAnswer
 from ..tools.code import write_python_eda, run_code, write_python_code_task
 from ..tools.media_download import download_audio
 from ..tools.audio_transcribe import transcribe_mp3_file
-from ..utils.clog import get_logger
 from ..utils import current_function
+from clog import get_logger
 
 
 logger = get_logger(__name__)
@@ -101,6 +101,7 @@ class AgentCapabilityUnstructuredDataProcessor(BaseAgentCapability):
         Args:
         ask (str): what data we are analysing 
         """
+        # FIXME: Handle all resources, not just the ones from web search
         resource_contents = [web_resource.content for web_resource in resources]
 
         # TODO: make this more robust, also now can only handle resources that have text content 

@@ -1,20 +1,20 @@
 import os
 from time import sleep
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import undetected as uc
 from selenium.webdriver.support.ui import WebDriverWait
 
+from clog import get_logger
+
 
 class ChromeBrowser:
     waiter_default_timeout = 1
-    logging_file = "llm_browser_session_base.log"
-    past_questions_answers = list()
     chrome_user_data_dir = os.getenv(
-        "CHROME_USER_DATA_DIR", "~/Library/Application Support/Google/Chrome"
+        "CHROME_USER_DATA_DIR", "./browser_cache"
     )
     default_profile_directory_name = os.getenv(
-        "CHROME_PROFILE_DIRECTORY_NAME", "Profile 1"
+        "CHROME_PROFILE", "Default"
     )
     # Mapping from tabs tittle to their window handles
     opened_tabs: Dict[str, Any] = {}
@@ -32,10 +32,8 @@ class ChromeBrowser:
 
         return options
 
-    def __init__(self, profile: str):
-        # FIXME: do propper logging
-        import  logging
-        self.logger = logging.getLogger(name=self.__class__.__name__)
+    def __init__(self, profile: Optional[str] = None):
+        self.logger = get_logger(name=self.__class__.__name__)
 
         self.options = self.get_default_options()
         self.profile = profile if profile else self.default_profile_directory_name

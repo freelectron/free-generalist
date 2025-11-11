@@ -8,7 +8,7 @@ from ..tools import NOT_FOUND_LITERAL
 from ..tools.data_model import ContentResource, WebSearchResult
 from ..models.core import llm
 from ..utils import current_function
-from ..utils.clog import get_logger
+from clog import get_logger
 
 
 logger = get_logger(__name__)

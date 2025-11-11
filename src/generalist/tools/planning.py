@@ -4,7 +4,7 @@ from ..agents.core import AgentCapabilityAudioProcessor, AgentCapabilityCodeWrit
 from .data_model import Task
 from ..models.core import llm
 from ..tools.data_model import ContentResource
-from ..utils.clog import get_logger
+from clog import get_logger
 from ..utils import current_function
 
 
