@@ -9,7 +9,7 @@ from clog import get_logger
 
 
 class ChromeBrowser:
-    waiter_default_timeout = 1
+    waiter_default_timeout = 10
     chrome_user_data_dir = os.getenv(
         "CHROME_USER_DATA_DIR", "./browser_cache"
     )
