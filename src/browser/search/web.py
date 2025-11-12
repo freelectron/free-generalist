@@ -33,12 +33,14 @@ class BraveBrowser(BrowserWebSearch):
         search_url = self.base_url + "+".join(query.split(" "))
         if tab_id not in self.browser.opened_tabs.keys():
             self.browser.driver.switch_to.new_window('tab')
+            self.browser.wait(0.5)
             self.browser.driver.get(search_url)
             windows = self.browser.driver.window_handles
             self.browser.opened_tabs[tab_id] = windows[-1]
             self.browser.driver.switch_to.window(self.browser.opened_tabs[tab_id])
         else:
             self.browser.driver.switch_to.window(self.browser.opened_tabs[tab_id])
+            self.browser.wait(0.5)
             self.browser.driver.get(search_url)
 
         self.browser.wait(2)

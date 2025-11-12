@@ -1,6 +1,6 @@
 import json
 
-from ..agents.core import AgentCapabilityAudioProcessor, AgentCapabilityCodeWritterExecutor, AgentCapabilityDeepWebSearch, AgentCapabilityImageProcessor,  AgentCapabilityUnstructuredDataProcessor, CapabilityPlan, json_to_capability_plan
+from ..agents.core import AgentCapabilityAudioProcessor, AgentCapabilityCodeWritterExecutor, AgentCapabilityDeepWebSearch, AgentCapabilityUnstructuredDataProcessor, CapabilityPlan
 from .data_model import Task
 from ..models.core import llm
 from ..tools.data_model import ContentResource
@@ -89,10 +89,6 @@ def determine_capabilities(current_step: str, task: Task, resources: list[Conten
     TODO: implement
       - `{AgentCapabilityStructuredDataProcessor.name}`: Analyze, query, or visualize data from structured files like Parquet, CSV, JSON, or databases.
       - `{AgentCapabilityImageProcessor.name}`: Download image, analyze an image to identify objects, read text (OCR), or understand its content.
-
-    Args:
-        task (str): The description of the task to be performed.
-        attachments (list[str]): A list of file names related to the task.
 
     Returns:
         CapabilityPlan: A dataclass containing the ordered list of sub-tasks.
@@ -186,6 +182,5 @@ ONLY RESPOND WITH A SINGLE JSON, in this exact JSON format:
     response = llm.complete(planning_prompt)
     response_text = response.text.strip()
     logger.info(f"- {current_function()} -- Raw output: {response_text}")
-    result = json.loads(response_text)
 
-    return json_to_capability_plan(result)
+    return json.loads(response_text)

@@ -1,9 +1,12 @@
+from typing import Optional
+
 import requests
 
 from bs4 import BeautifulSoup
 import httpx
 from ddgs import DDGS
 
+from browser.search.web import BraveBrowser
 from ..tools import NOT_FOUND_LITERAL
 from ..tools.data_model import ContentResource, WebSearchResult
 from ..models.core import llm
@@ -77,13 +80,14 @@ def duckduckgo_search(query: str, max_results: int = 2) -> list[WebSearchResult]
 
     return found_resources
 
-def brave_search(query: str, max_results: int = 2):
+def brave_search(query: str, max_results: int = 2, brave_search_session: Optional[BraveBrowser] = None):
     """ 
     Performs a Brave Web search and returns results as WebResource objects.
 
     Args:
         query: The search query string.
         max_results: The maximum number of search results to retrieve.
+        brave_search_session: selenium browser search with Brave
 
     Returns:
         A list of WebResource objects, where 'content' is None and 'metadata'
@@ -138,14 +142,23 @@ def brave_search(query: str, max_results: int = 2):
             
         return parsed_results
 
-    base_search_url = "https://search.brave.com/search?q="
-    search_url = base_search_url + "+".join(query.split(" "))
-    logger.info(f"- {current_function()} -- Searching url: {search_url}")
-    headers = {'Accept-Encoding': 'gzip, deflate'}  # Exclude 'br' encoding (brave started to return sometimes)
-    response_search = requests.get(search_url, headers=headers)
-    logger.finfo(f"- {current_function()} -- response_search: {response_search.content}")
+    if not brave_search_session:
+        base_search_url = "https://search.brave.com/search?q="
+        search_url = base_search_url + "+".join(query.split(" "))
+        logger.info(f"- {current_function()} -- Searching url: {search_url}")
+        headers = {
+            'Accept-Encoding': 'gzip, deflate',
+            'User-Agent': 'Chrome/122.0.0.0',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Referer': "https://search.brave.com"
+        }
+        response_search = requests.get(search_url, headers=headers)
+        search_browser_page = str(response_search.content)
+    else:
+        search_browser_page = brave_search_session.search(query)
 
-    results = parse_search_results(str(response_search.content), max_results)
+    results = parse_search_results(search_browser_page, max_results)
     found_resources = list()
     for i, result in enumerate(results):
         resource = WebSearchResult(
@@ -213,8 +226,13 @@ def download_content(resource: WebSearchResult) -> str:
 
     # For this example, let's assume _encode_url_path is defined elsewhere
     # encoded_link = _encode_url_path(resource.link)
-    # FIXME: see if adding headers is a good solution to handle br encoding issue
-    headers = {'Accept-Encoding': 'gzip, deflate'}
+    headers = {
+        'Accept-Encoding': 'gzip, deflate',
+        'User-Agent': 'Chrome/122.0.0.0',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Referer': resource.link
+    }
     response = httpx.get(resource.link, timeout=15, headers=headers)
     charset = response.encoding or 'utf-8'
     html_bytes = response.content
@@ -222,7 +240,7 @@ def download_content(resource: WebSearchResult) -> str:
 
     return extract_clean_text(html_content)
 
-def web_search(question: str, links_per_query: int = 2) -> list[ContentResource]:
+def web_search(question: str, links_per_query: int = 2, brave_search_session: Optional[BraveBrowser] = None) -> list[ContentResource]:
     """Orchestrates the full web search process for a given question.
 
     This process includes:
@@ -233,6 +251,7 @@ def web_search(question: str, links_per_query: int = 2) -> list[ContentResource]
     Args:
         question: The user's question.
         links_per_query: The number of web links to retrieve for each search query.
+        brave_search_session: selenium browser search with Brave
 
     Returns:
         A list of WebResource objects, with their 'content' field populated.
@@ -242,7 +261,7 @@ def web_search(question: str, links_per_query: int = 2) -> list[ContentResource]
 
     all_sources = []
     for query in candidate_queries:
-        search_results_for_query = brave_search(query, links_per_query) #duckduckgo_search(query, links_per_query) #
+        search_results_for_query = brave_search(query, links_per_query, brave_search_session) #duckduckgo_search(query, links_per_query) #
         all_sources.extend(search_results_for_query)
 
     unique_search_results = drop_non_unique_link(all_sources)
@@ -251,6 +270,7 @@ def web_search(question: str, links_per_query: int = 2) -> list[ContentResource]
     final_resources = []
     for search in unique_search_results:
         content = download_content(search)
+        logger.info(f"download_content:\n {content}.")
         populated_resource = ContentResource(
             provided_by=web_search.__name__,
             content=content,

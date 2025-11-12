@@ -20,7 +20,7 @@ class ChromeBrowser:
     opened_tabs: Dict[str, Any] = {}
 
     @staticmethod
-    def wait(seconds: int = 1):
+    def wait(seconds: float = 1):
         sleep(seconds)
 
     @staticmethod
@@ -29,6 +29,7 @@ class ChromeBrowser:
         options = uc.ChromeOptions()
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-blink-features=AutomationControlled")
+        options.add_argument("--user-agent=Chrome/122.0.0.0")
 
         return options
 
@@ -42,3 +43,4 @@ class ChromeBrowser:
             user_data_dir=os.path.join(self.chrome_user_data_dir, self.profile),
         )
         self.waiter = WebDriverWait(self.driver, self.waiter_default_timeout)
+        self.wait(1)

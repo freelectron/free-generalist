@@ -1,6 +1,10 @@
-from typing import Optional, Type
-from dataclasses import dataclass
+from typing import Optional, Type, Tuple
+from dataclasses import dataclass, field
 
+from pandas.core.window.doc import kwargs_scipy
+
+from browser import ChromeBrowser
+from browser.search.web import BraveBrowser
 from ..tools.summarisers import construct_short_answer
 from ..tools.text_processing import text_process_llm
 from ..tools.web_search import web_search 
@@ -29,12 +33,14 @@ class BaseAgentCapability:
 
     def __init__(self, activity: str):
         """
+        FIXME: CHANGE AGENT TO BE ACTION AGNOSTIC
+               Probably agents just need tools and/or resources as input
+
         Initializes the capability with a specific activity.
 
         Args:
-            activity (str): The specific action to be performed.
+            activity (str): The specific action/task to be performed.
         """
-        # TODO: not sure how good of an idea to init an agent with an activity in the state
         self.activity = activity
 
     def __repr__(self) -> str:
@@ -53,11 +59,14 @@ class AgentCapabilityDeepWebSearch(BaseAgentCapability):
     """Capability for performing a deep web search."""
     name = "deep_web_search"
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # FIXME: see how to call the browser cleaner
+        self.browser = ChromeBrowser()
+        self.brave_search = BraveBrowser(self.browser, "deep_web_search")
+
     def run(self) -> AgentCapabilityOutput:
-        """
-        Args:
-         ask (str): what we are searching
-        """
+        # return AgentCapabilityOutput(answers=None, resources=web_search(self.activity, brave_search_session=self.brave_search))
         return AgentCapabilityOutput(answers=None, resources=web_search(self.activity))
 
 
@@ -141,31 +150,33 @@ class AgentCapabilityCodeWritterExecutor(BaseAgentCapability):
 @dataclass
 class CapabilityPlan:
     """A structured plan outlining the sequence of capabilities and actions."""
-    subplan: list[BaseAgentCapability]
+    subplan: list[Tuple[str, BaseAgentCapability]]
+    capability_map = {
+        AgentCapabilityDeepWebSearch.name: AgentCapabilityDeepWebSearch,
+        AgentCapabilityAudioProcessor.name: AgentCapabilityAudioProcessor,
+        AgentCapabilityImageProcessor.name: AgentCapabilityImageProcessor,
+        AgentCapabilityUnstructuredDataProcessor.name: AgentCapabilityUnstructuredDataProcessor,
+        AgentCapabilityCodeWritterExecutor.name: AgentCapabilityCodeWritterExecutor,
+    }
+
+    @classmethod
+    def from_json(cls, json_data: dict) -> "CapabilityPlan":
+        """
+        Convert JSON response into a CapabilityPlan with proper capability objects.
+        """
+        subplan = []
+        for step in json_data["subplan"]:
+            cap_name = step["capability"]
+            activity = step["activity"]
+
+            if cap_name not in cls.capability_map:
+                raise ValueError(f"Unknown capability: {cap_name}")
+
+            cap_class = cls.capability_map[cap_name]
+            subplan.append((activity, cap_class))
+
+        return CapabilityPlan(subplan=subplan)
 
 
-CAPABILITY_MAP: dict[str, Type[BaseAgentCapability]] = {
-    AgentCapabilityDeepWebSearch.name: AgentCapabilityDeepWebSearch,
-    AgentCapabilityAudioProcessor.name: AgentCapabilityAudioProcessor,
-    AgentCapabilityImageProcessor.name: AgentCapabilityImageProcessor,
-    AgentCapabilityUnstructuredDataProcessor.name: AgentCapabilityUnstructuredDataProcessor,
-    AgentCapabilityCodeWritterExecutor.name: AgentCapabilityCodeWritterExecutor,
-}
 
-def json_to_capability_plan(json_data: dict, capability_map: dict[str, Type[BaseAgentCapability]] = CAPABILITY_MAP) -> CapabilityPlan:
-    """
-    Convert JSON response into a CapabilityPlan with proper capability objects.
-    """
-    subplan = []
-    for step in json_data["subplan"]:
-        cap_name = step["capability"]
-        activity = step["activity"]
 
-        if cap_name not in capability_map:
-            raise ValueError(f"Unknown capability: {cap_name}")
-
-        cap_class = capability_map[cap_name]
-        capability = cap_class(activity=activity)
-        subplan.append(capability)
-
-    return CapabilityPlan(subplan=subplan)
