@@ -80,7 +80,7 @@ def duckduckgo_search(query: str, max_results: int = 2) -> list[WebSearchResult]
 
     return found_resources
 
-def brave_search(query: str, max_results: int = 2, brave_search_session: Optional[BraveBrowser] = None):
+def brave_search(query: str, max_results: int = 2, brave_search_session: Optional[BraveBrowser] = None) -> list[dict]:
     """ 
     Performs a Brave Web search and returns results as WebResource objects.
 
@@ -237,6 +237,7 @@ def download_content(resource: WebSearchResult) -> str:
     charset = response.encoding or 'utf-8'
     html_bytes = response.content
     html_content = html_bytes.decode(charset)
+    logger.finfo(f"download_content:\n {html_content}.")
 
     return extract_clean_text(html_content)
 
@@ -261,7 +262,8 @@ def web_search(question: str, links_per_query: int = 2, brave_search_session: Op
 
     all_sources = []
     for query in candidate_queries:
-        search_results_for_query = brave_search(query, links_per_query, brave_search_session) #duckduckgo_search(query, links_per_query) #
+        # Alternative: use duckduckgo_search(query, links_per_query)
+        search_results_for_query = brave_search(query, links_per_query, brave_search_session)
         all_sources.extend(search_results_for_query)
 
     unique_search_results = drop_non_unique_link(all_sources)
@@ -270,7 +272,6 @@ def web_search(question: str, links_per_query: int = 2, brave_search_session: Op
     final_resources = []
     for search in unique_search_results:
         content = download_content(search)
-        logger.info(f"download_content:\n {content}.")
         populated_resource = ContentResource(
             provided_by=web_search.__name__,
             content=content,

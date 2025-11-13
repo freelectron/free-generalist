@@ -59,15 +59,18 @@ class AgentCapabilityDeepWebSearch(BaseAgentCapability):
     """Capability for performing a deep web search."""
     name = "deep_web_search"
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # FIXME: see how to call the browser cleaner
-        self.browser = ChromeBrowser()
-        self.brave_search = BraveBrowser(self.browser, "deep_web_search")
+    def __init__(self, activity: str, search_browser: Optional[BraveBrowser] = None):
+        super().__init__(activity=activity)
+        self.search_browser = search_browser
 
     def run(self) -> AgentCapabilityOutput:
-        # return AgentCapabilityOutput(answers=None, resources=web_search(self.activity, brave_search_session=self.brave_search))
-        return AgentCapabilityOutput(answers=None, resources=web_search(self.activity))
+        return AgentCapabilityOutput(
+            answers=None,
+            resources=web_search(
+                self.activity,
+                brave_search_session=self.search_browser
+            )
+        )
 
 
 class AgentCapabilityAudioProcessor(BaseAgentCapability):

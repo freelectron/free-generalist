@@ -6,7 +6,20 @@ from typing import Optional
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 
 
-def create_file_handler(file_path: str):
+def create_log_folder() -> str:
+    debug_folder_path = os.environ.get("DEBUG_FOLDER_LOCATION", None)
+    if not debug_folder_path:
+        debug_folder_path = "./logs"
+        if  not os.path.exists(debug_folder_path):
+            os.makedirs("logs")
+
+    return debug_folder_path
+
+def create_file_handler(file_name: str):
+    debug_folder_path = create_log_folder()
+    file_name = file_name if file_name else f'{datetime.today().date().isoformat()}.log'
+    file_path = os.path.join(debug_folder_path, file_name)
+
     file_handler = logging.FileHandler(file_path)
     file_handler.setLevel(logging.INFO)
     file_formatter = logging.Formatter(LOG_FORMAT)
@@ -32,19 +45,11 @@ class CLogger(logging.Logger):
         self.removeHandler(self.file_handler)
         self.addHandler(self.console_handler)
 
-    def __init__(self, name:str, level:int, file_path:str):
+    def __init__(self, name:str, level:int, file_name:str):
         super().__init__(name, level)
 
-        if not file_path:
-            debug_folder_path = os.environ.get("DEBUG_FOLDER_LOCATION", None)
-            if not debug_folder_path:
-                debug_folder_path = "./logs"
-                if  not os.path.exists(debug_folder_path):
-                    os.makedirs("logs")
-            file_path =  os.path.join(debug_folder_path, f'{datetime.today().date().isoformat()}.log')
-
         self.console_handler = create_console_handler()
-        self.file_handler = create_file_handler(file_path)
+        self.file_handler = create_file_handler(file_name)
 
         # Default is the console handler
         self.addHandler(self.console_handler)
@@ -74,7 +79,7 @@ class CLogger(logging.Logger):
         self.critical(msg)
         self.switch_to_console()
 
-def get_logger(name: str, file_path: Optional[str] = None):
+def get_logger(name: str, file_name: Optional[str] = None):
     level = logging.INFO
 
-    return CLogger(name=name, level=level, file_path=file_path)
+    return CLogger(name=name, level=level, file_name=file_name)
