@@ -1,12 +1,67 @@
+import json
 
 from langchain_text_splitters import CharacterTextSplitter
 
+from .data_model import ContentResource
 from ..models.core import llm
 from clog import get_logger
-
+from ..utils import current_function
 
 logger = get_logger(__name__)
 
+
+def parse_resource(task: str):
+    prompt = f"""
+    You are given a task identify if it contains a link to a file or a resources online.
+    If it does, produce a json with the following structure: 
+    
+    {{
+     "provided_by": "user_task",
+     "content": << a few words description of what could be in the file link/ online resource >>
+     "link": << identified link>>
+    }}
+    
+    For example: 
+    In:
+    Task = "Search the following file ./user/pdev/audio_transcript.txt and i see how the sentiment of this text is."
+    Out:
+    {{
+     "provided_by": "user_task",
+     "content": "user given audio transcript provided by the user"
+     "link": "./user/pdev/audio_transcript.txt"
+    }}
+    In:
+    Task = "See what the evaluation of AMD mentioned by this https://finance.yahoo.com/news/ais-valuation-problem.html"
+    Out:
+    {{
+     "provided_by": "user_task",
+     "content": "user given link to a financial article about AMD"
+     "link": "https://finance.yahoo.com/news/ais-valuation-problem.html"
+    }}
+    In:
+    Task = "Go online to wikipidia and search history of Prussia"
+    Out: NOT FOUND
+    
+    IF no link is given, return a single string "NOT FOUND" 
+    YOUR CURRENT TASK IS: {task}
+    Start now:
+    """
+
+    response = llm.complete(prompt)
+
+    if "NOT FOUND" not in response.text:
+        json_content = response.text
+        logger.info(f"- {current_function()} -- JSON to parse to determine resources: {json_content}")
+        loaded_dict = json.loads(json_content)
+
+        return ContentResource(
+            provided_by=loaded_dict["provided_by"],
+            content=loaded_dict["content"],
+            link=loaded_dict["link"],
+            metadata={},
+        )
+
+    return None
 
 def task_with_text_llm(task: str, text: str) -> str:
     """Performs a task on a single block of text using an LLM.

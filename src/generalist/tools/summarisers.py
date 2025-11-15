@@ -24,7 +24,7 @@ def construct_short_answer(task: str, context: str) -> ShortAnswer:
     prompt = f"""
     You are presented with a list of expert answers from different sources that you need to summarize.
 
-    LIST:
+    ANSWERS:
     {context}
 
     Based **ONLY** on that list and without any additional assumptions from your side, perform the task specified (or answer the question).

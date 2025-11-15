@@ -11,7 +11,7 @@ class Task:
 
 @dataclass
 class ContentResource:
-    """A unified dataclass for handling any type of resource that is being used for a task (web document, pdf file ).
+    """A unified dataclass for handling any type of resource that is being used for a task (web document, pdf file).
 
     Attributes:
         provided_by: who supplied the resource (user or an agent/tool call) <=> as_answer_to

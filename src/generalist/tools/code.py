@@ -17,7 +17,7 @@ def write_python_eda(resources:list[ContentResource]) -> str:
     """
     prompt = f"""
     You may be given resources that could be binary or text files.
-    Your task is to descirbe what each resource contains.
+    Your task is to describe what each resource contains.
 
     Write python code that would first try to load each resource and then inspect its contents.
     You may use popular or standard python libraries. 
