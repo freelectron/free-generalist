@@ -1,9 +1,8 @@
+import os
+import re
 from typing import Optional, Type, Tuple
 from dataclasses import dataclass, field
 
-from pandas.core.window.doc import kwargs_scipy
-
-from browser import ChromeBrowser
 from browser.search.web import BraveBrowser
 from ..tools.summarisers import construct_short_answer
 from ..tools.text_processing import text_process_llm
@@ -87,7 +86,10 @@ class AgentCapabilityAudioProcessor(BaseAgentCapability):
                 break 
 
         # downloads the file from the web to local (do not provide extension)
-        file_path, meta = download_audio("tempfile_audio", resource.link)
+        temp_folder = os.environ.get("TEMP_FILES_FOLDER", "./")
+        cleaned_link = re.sub(r'[^A-Za-z0-9]', '', resource.link[-20])
+        file_path_no_extension = os.path.join(temp_folder, "audio_processor", cleaned_link)
+        file_path, meta = download_audio(file_path_no_extension, resource.link)
         logger.info(f"- {current_function()} -- Downloaded file to {file_path} with meta info {meta}.")
 
         # transcribes the file and returns just the text

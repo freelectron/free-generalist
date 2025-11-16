@@ -1,8 +1,3 @@
-import os
-from time import sleep, time
-
-from requests import session
-
 from browser import ChromeBrowser
 from clog import get_logger
 

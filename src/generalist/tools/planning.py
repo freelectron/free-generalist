@@ -182,5 +182,6 @@ ONLY RESPOND WITH A SINGLE JSON, in this exact JSON format:
     response = llm.complete(planning_prompt)
     response_text = response.text.strip()
     logger.info(f"- {current_function()} -- Raw output: {response_text}")
+    escaped_response_text = response_text.translate(str.maketrans({"\\":  r"\\"}))
 
-    return json.loads(response_text)
+    return json.loads(escaped_response_text)
