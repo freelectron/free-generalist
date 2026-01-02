@@ -18,12 +18,12 @@ def parse_resource(task: str):
     {{
      "provided_by": "user_task",
      "content": << a few words description of what could be in the file link/ online resource >>
-     "link": << identified link>>
+     "link": <<identified link>>
     }}
     
     For example: 
     In:
-    Task = "Search the following file ./user/pdev/audio_transcript.txt and i see how the sentiment of this text is."
+    Task = "Search the following file ./user/pdev/audio_transcript.txt and see what the sentiment of this text is."
     Out:
     {{
      "provided_by": "user_task",

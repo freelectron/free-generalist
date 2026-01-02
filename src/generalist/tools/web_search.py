@@ -48,7 +48,7 @@ def question_to_queries(question: str, max_queries: int = 2) -> list[str]:
     return response_text.strip().split("|")
 
 
-def duckduckgo_search(query: str, max_results: int = 2) -> list[WebSearchResult]:
+def duckduckgo_search(query: str, max_results: int = 1) -> list[WebSearchResult]:
     """Performs a DuckDuckGo search and returns results as WebResource objects.
 
     Args:
@@ -80,7 +80,7 @@ def duckduckgo_search(query: str, max_results: int = 2) -> list[WebSearchResult]
 
     return found_resources
 
-def brave_search(query: str, max_results: int = 2, brave_search_session: Optional[BraveBrowser] = None) -> list[dict]:
+def brave_search(query: str, max_results: int = 1, brave_search_session: Optional[BraveBrowser] = None) -> list[dict]:
     """ 
     Performs a Brave Web search and returns results as WebResource objects.
 
@@ -94,7 +94,7 @@ def brave_search(query: str, max_results: int = 2, brave_search_session: Optiona
         contains the search result details.
     """
 
-    def  parse_search_results(html_content: str, n: int = 1) -> list[dict]:
+    def  parse_search_results(html_content: str, n: int) -> list[dict]:
         """
         Parses the HTML content of a Brave search results page to extract
         the top 'n' search results.
@@ -122,7 +122,7 @@ def brave_search(query: str, max_results: int = 2, brave_search_session: Optiona
             description = "N/A"
 
             # assumption: the link and title are within the same <a> tag
-            link_element = result.find('a', class_='heading-serpresult')
+            link_element = result.find('a', href=True)
             if link_element and link_element.has_attr('href'):
                 link = link_element['href']
                 
@@ -130,10 +130,10 @@ def brave_search(query: str, max_results: int = 2, brave_search_session: Optiona
                 if title_element:
                     title = title_element.get_text(strip=True)
 
-            description_element = result.find('div', class_='snippet-description')
+            description_element = result.find('div', class_='content')
             if description_element:
                 description = description_element.get_text(strip=True)
-                
+
             parsed_results.append({
                 "title": title,
                 "link": link,
@@ -267,7 +267,7 @@ def web_search(question: str, links_per_query: int = 2, brave_search_session: Op
         all_sources.extend(search_results_for_query)
 
     unique_search_results = drop_non_unique_link(all_sources)
-    logger.info(f"Found {len(unique_search_results)} unique sources.")
+    logger.info(f"Found {len(unique_search_results)} unique sources.\n{unique_search_results}")
 
     final_resources = []
     for search in unique_search_results:

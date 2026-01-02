@@ -39,5 +39,6 @@ class ShortAnswer:
         answer: The direct answer to the task, or "not found" if unavailable.
         clarification: A brief explanation of the context or reason for the answer.
     """
+    answered: bool
     answer: str = "not found"
     clarification: str = "No information processed yet."

@@ -21,7 +21,7 @@ logger = get_logger(__name__)
 @dataclass
 class AgentCapabilityOutput: 
     # Based on resources or file attachments, a list of short answers to the task 
-    answers: Optional[list[ShortAnswer]]
+    answers: Optional[list[ShortAnswer]] = None
     # Produced resources
     resources: Optional[list[ContentResource]] = None
 
@@ -118,7 +118,7 @@ class AgentCapabilityUnstructuredDataProcessor(BaseAgentCapability):
         # FIXME: Handle all resources, not just the ones from web search
         resource_contents = [web_resource.content for web_resource in resources]
 
-        # TODO: make this more robust, also now can only handle resources that have text content 
+        # TODO: make this more robust, also now can only handle resources that have text content
         text  = "; \n\n |  ".join(resource_contents)
 
         answers = text_process_llm(self.activity, text)

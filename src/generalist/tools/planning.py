@@ -83,23 +83,24 @@ where
     return task_response.text
 
 
-def determine_capabilities(current_step: str, task: Task, resources: list[ContentResource] = list(), context: str = "") -> CapabilityPlan:
+def determine_capabilities(task: Task, resources: list[ContentResource], context: str = "") -> CapabilityPlan:
     """
-    Analyzes a task and generates a sequential execution plan using available capabilities.
+    Analyzes a task and automatically determines which step from the plan should be executed next
+    based on the context, then selects the single most appropriate capability for that step.
+
     TODO: implement
       - `{AgentCapabilityStructuredDataProcessor.name}`: Analyze, query, or visualize data from structured files like Parquet, CSV, JSON, or databases.
       - `{AgentCapabilityImageProcessor.name}`: Download image, analyze an image to identify objects, read text (OCR), or understand its content.
 
     Returns:
-        CapabilityPlan: A dataclass containing the ordered list of sub-tasks.
+        CapabilityPlan: A dataclass containing a single sub-task with the chosen capability.
     """
-    full_context = ""
     if resources:
-        full_context = f"\nAttached resources: {resources}"
+        resources = f"\nAttached resources: {resources}"
 
-    # TODO: is this fine to map capability to an agent one-to-one? 
+    # TODO: is this fine to map capability to an agent one-to-one?
     planning_prompt = f"""
-You are a highly intelligent planning agent. Your primary function is to analyze a user's task together with the current step that needs to be executed and given the context/attachments create a precise, step-by-step plan using only a predefined set of capabilities.
+You are a highly intelligent planning agent. Your primary function is to analyze a task's overall plan and the context of what has already been accomplished, then intelligently determine which step should be executed next and which capability to use.
 
 Capabilities:
 - `{AgentCapabilityDeepWebSearch.name}`: Find, evaluate, and download web content (e.g., articles, documents). This capability is for search and downloading web resources only, not for processing the content or getting any answers on the content.
@@ -108,77 +109,96 @@ Capabilities:
 - `{AgentCapabilityAudioProcessor.name}`: Download audio file, transcribes speech.
 
 Your Task:
-Analyze the provided task and create a sequential plan to accomplish it. The plan should be a list of steps, where each step defines the capability to use and the specific activity to perform, thus:
-- "activity" for the step is a clear and concise description of the specific action to be performed using the chosen capability
-- "capablity" is one of the above mentioned capabilities that should be used to accomplish the activity
+1. Review the full task plan and the context of what has already been accomplished
+2. Intelligently determine which step from the plan should be executed next (it might not be the first unexecuted step - choose based on what makes sense given the context)
+3. Select the SINGLE most appropriate capability for that step
+4. Define a clear activity description that incorporates information from the context
 
-Example 1:
-Current step: "Look up the age of the that actor." 
-Task: "Task(question='What is the age of the main actor of Inception?', objective='Identify the main actor who played in Inception and their age', plan=['Determine the main charcter of the movie Inception', "Look up the age of the that actor'"]),
-Context: {{'found': 'Leonardo DiCaprio played the main character in Inception' ...}} 
+Output format:
+- "activity": A clear and concise description of the specific action to be performed using the chosen capability, incorporating relevant details from the context
+- "capability": One of the above mentioned capabilities that should be used to accomplish the activity
+
+Example 1: Selecting next logical step based on context
+Task: "Task(question='What is the age of the main actor of Inception?', objective='Identify the main actor who played in Inception and their age', plan=['Determine the main character of the movie Inception', 'Look up the age of that actor'])"
+Context: "Step 0: [ShortAnswer(answered=True, answer='Leonardo DiCaprio played the main character in Inception')]"
 Output:
 {{
   "subplan": [
     {{
-      "activity": "Search for the age of Leonardo DiCaprio online",
+      "activity": "Search for the current age of Leonardo DiCaprio online",
       "capability": "{AgentCapabilityDeepWebSearch.name}"
-    }},
+    }}
+  ]
+}}
+Reasoning: Step 0 is completed (main actor identified as Leonardo DiCaprio), so we proceed to step 1 and incorporate the discovered name into the activity.
+
+Example 2: Starting from the beginning when context is empty
+Task: "Task(question='What are the main topics discussed in the uploaded podcast episode?', objective='Summarize the key themes of the podcast', plan=['Download and transcribe the audio file', 'Analyze the transcription and extract main topics'])"
+Context: ""
+Output:
+{{
+  "subplan": [
     {{
-      "activity": "Identify the age of Leonardo DiCaprio from the text",
+      "activity": "Write code to download and transcribe the speech from the podcast audio file",
+      "capability": "{AgentCapabilityAudioProcessor.name}"
+    }}
+  ]
+}}
+Reasoning: No context provided, so we start with the first step in the plan.
+
+Example 3: Skipping ahead when intermediate steps are already satisfied
+Task: "Task(objective='Plot financial stocks prices', plan=['Download the CSV file from the provided URL', 'Load and analyze the file structure', 'Plot the stock prices'])"
+Context: "Step 0: [ShortAnswer(answered=True, answer='Downloaded file to /tmp/stocks.csv')]\nStep 1: [ShortAnswer(answered=True, answer='CSV contains columns: Date, Symbol, Price, Volume')]"
+Output:
+{{
+  "subplan": [
+    {{
+      "activity": "Write code to load /tmp/stocks.csv and create a plot of stock prices over time",
+      "capability": "{AgentCapabilityCodeWritterExecutor.name}"
+    }}
+  ]
+}}
+Reasoning: Steps 0 and 1 are already completed, so we proceed to step 2 (plotting) and incorporate the discovered file path and column information.
+
+Example 4: Using context to refine the next action
+Task: "Task(objective='Summarize the article about climate change', plan=['Search for and download the article', 'Extract key information from the article'])"
+Context: "Step 0: [ShortAnswer(answered=True, answer='Downloaded article from Nature.com about Arctic climate change, stored in /tmp/arctic_climate.pdf')]"
+Output:
+{{
+  "subplan": [
+    {{
+      "activity": "Analyze and extract key information about Arctic climate change from the downloaded PDF at /tmp/arctic_climate.pdf",
       "capability": "{AgentCapabilityUnstructuredDataProcessor.name}"
     }}
   ]
 }}
+Reasoning: Step 0 is completed, so we move to step 1. The activity incorporates specific details from context (Arctic focus, PDF location).
 
-Example 2: Audio Content Extraction
-Current step: "Extract the spoken content from the audio file."
-Task: "Task(question='What are the main topics discussed in the uploaded podcast episode?', objective='Summarize the key themes of the podcast', plan=['Download the audio file', 'Extract and transcribe speech', 'Summarize the transcription'])",
-Context: {{'file': 'podcast_episode.mp3'}}
-Output:
-{{
-    "subplan": [
-  {{
-    "activity": "Write code to download and transcribe the speech from podcast_episode.mp3",
-    "capability": "{AgentCapabilityAudioProcessor.name}"
-  }}
-  ]
-}}
-Example 3: Processing tabular files  
-Current step: "Plot stock prices trend for financial sect stock identiefied in the file of the attachments."
-Task: "Task(objective='Plot financial stocks' prices', plan=['load and analyse the file', 'Plot the prices'])",
-Context: {{'file': 'yahoo_finance_dump.mp3'}}
-Output:
-{{
-    "subplan": [
-  {{
-    "activity": "Write code to download and transcribe the speech from podcast_episode.mp3",
-    "capability": "{AgentCapabilityCodeWritterExecutor.name}"
-  }}
-  ]
-}}
 ---
-Current step: "{current_step}".
-Task: "{task}".
-Context: 
+Task: "{task}"
+Full Plan: {task.plan}
+Context:
 "{context}"
-"{full_context}"
+"{resources}"
 
-**IMPORTANT**: you are only handling "{current_step}" of the plan "{task.plan}", FOCUS ONLY ON THAT AND WHAT WAS ALREADY FOUND IN THE CONTEXT.   
-**IMPORTANT**: take into account the context and attachments, e.g., specify the activity based on what was already FOUND in the context.     
+**CRITICAL INSTRUCTIONS**:
+1. Analyze the context to understand what has already been accomplished
+2. Determine which step from the plan should be executed next based on logical progression
+3. Incorporate specific information from the context into your activity description (e.g., file paths, names, data discovered)
+4. Output EXACTLY ONE capability action in the subplan array
+5. If context is empty, start with the first step in the plan
+6. If some steps are completed, proceed to the next logical step
+
 ONLY RESPOND WITH A SINGLE JSON, in this exact JSON format:
 {{
   "subplan": [
     {{
       "activity": "...",
       "capability": "..."
-    }},
-    {{
-      "activity": "...",
-      "capability": "..."
     }}
   ]
 }}
-"""   
+"""
     response = llm.complete(planning_prompt)
     response_text = response.text.strip()
     logger.info(f"- {current_function()} -- Raw output: {response_text}")
