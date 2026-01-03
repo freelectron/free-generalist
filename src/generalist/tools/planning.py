@@ -1,6 +1,6 @@
 import json
 
-from ..agents.core import AgentCapabilityAudioProcessor, AgentCapabilityCodeWritterExecutor, AgentCapabilityDeepWebSearch, AgentCapabilityUnstructuredDataProcessor, CapabilityPlan
+from ..agents.core import AgentCapabilityAudioProcessor, AgentCapabilityCodeWriterExecutor, AgentCapabilityDeepWebSearch, AgentCapabilityUnstructuredDataProcessor, CapabilityPlan
 from .data_model import Task
 from ..models.core import llm
 from ..tools.data_model import ContentResource
@@ -31,7 +31,7 @@ Available resources:
 
 Instructions:
 1. Clarify the Core Objective: Start by rephrasing the user's goal as a single, clear, and specific objective.
-2. Extract Resources: Identify any URLs or URIs mentioned in the user's goal and list them as the resource. Rrovide a short description (content) and the link for the resource.
+2. Extract Resources: Identify any URLs or URIs mentioned in the user's goal and list them as the resource. Provide a short description (content) and the link for the resource.
 3. Develop a Chronological Action Plan: Break down the objective into a logical sequence of high-level steps (aim for 1 or 2 steps).
 
 Example Output Format (ALWAYS **JSON**):
@@ -83,7 +83,7 @@ where
     return task_response.text
 
 
-def determine_capabilities(task: Task, resources: list[ContentResource], context: str = "") -> CapabilityPlan:
+def determine_capabilities(task: Task, context: str = "") -> CapabilityPlan:
     """
     Analyzes a task and automatically determines which step from the plan should be executed next
     based on the context, then selects the single most appropriate capability for that step.
@@ -95,20 +95,16 @@ def determine_capabilities(task: Task, resources: list[ContentResource], context
     Returns:
         CapabilityPlan: A dataclass containing a single sub-task with the chosen capability.
     """
-    if resources:
-        resources = f"\nAttached resources: {resources}"
-
-    # TODO: is this fine to map capability to an agent one-to-one?
     planning_prompt = f"""
 You are a highly intelligent planning agent. Your primary function is to analyze a task's overall plan and the context of what has already been accomplished, then intelligently determine which step should be executed next and which capability to use.
 
 Capabilities:
 - `{AgentCapabilityDeepWebSearch.name}`: Find, evaluate, and download web content (e.g., articles, documents). This capability is for search and downloading web resources only, not for processing the content or getting any answers on the content.
 - `{AgentCapabilityUnstructuredDataProcessor.name}`: Analyze, summarize, extract information from, or answer questions about raw text or documents (e.g., PDFs, TXT files, retrieved web content).
-- `{AgentCapabilityCodeWritterExecutor.name}`: Generate or execute code, solve mathematical problems, or perform complex logical operations and computations on files.
+- `{AgentCapabilityCodeWriterExecutor.name}`: Generate or execute code, solve mathematical problems, or perform complex logical operations and computations on files.
 - `{AgentCapabilityAudioProcessor.name}`: Download audio file, transcribes speech.
 
-Your Task:
+Your task:
 1. Review the full task plan and the context of what has already been accomplished
 2. Intelligently determine which step from the plan should be executed next (it might not be the first unexecuted step - choose based on what makes sense given the context)
 3. Select the SINGLE most appropriate capability for that step
@@ -154,7 +150,7 @@ Output:
   "subplan": [
     {{
       "activity": "Write code to load /tmp/stocks.csv and create a plot of stock prices over time",
-      "capability": "{AgentCapabilityCodeWritterExecutor.name}"
+      "capability": "{AgentCapabilityCodeWriterExecutor.name}"
     }}
   ]
 }}
@@ -177,9 +173,7 @@ Reasoning: Step 0 is completed, so we move to step 1. The activity incorporates 
 ---
 Task: "{task}"
 Full Plan: {task.plan}
-Context:
-"{context}"
-"{resources}"
+Context: {context}
 
 **CRITICAL INSTRUCTIONS**:
 1. Analyze the context to understand what has already been accomplished

@@ -22,7 +22,7 @@ def construct_short_answer(task: str, context: str) -> ShortAnswer:
         A ShortAnswer dataclass instance containing the answer and clarification.
     """
     prompt = f"""
-    You are presented with a list of expert information from different sources that you need to summarize.
+    You are presented with a list of expert information from oen or several sources that you need to summarize.
 
     RESOURCES:
     {context}

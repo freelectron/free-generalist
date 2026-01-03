@@ -22,10 +22,9 @@ def write_python_eda(resources:list[ContentResource]) -> str:
     Write python code that would first try to load each resource and then inspect its contents.
     You may use popular or standard python libraries. 
 
-    You code should output metainformation for each file.
+    Your code should output meta information for each file.
     For example, if you are given and .csv or .xls file, output the columns that it contains and provide basical schema and datatypes. 
     If you are given an audio or video file, process it to transcribe. 
-
 
     Resources:
     {resources}
@@ -36,7 +35,7 @@ def write_python_eda(resources:list[ContentResource]) -> str:
     
     return result.text
 
-def write_python_code_task(task: str, eda_results: str, resources: list[ContentResource]):
+def write_python_task(task: str, eda_results: str, resources: list[ContentResource]):
 
     prompt = f"""
     Task:

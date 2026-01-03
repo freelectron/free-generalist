@@ -8,7 +8,7 @@ from ..tools.summarisers import construct_short_answer
 from ..tools.text_processing import text_process_llm
 from ..tools.web_search import web_search 
 from ..tools.data_model import ContentResource, ShortAnswer
-from ..tools.code import write_python_eda, run_code, write_python_code_task
+from ..tools.code import write_python_eda, run_code, write_python_task
 from ..tools.media_download import download_audio
 from ..tools.audio_transcribe import transcribe_mp3_file
 from ..utils import current_function
@@ -19,8 +19,9 @@ logger = get_logger(__name__)
 
 
 @dataclass
-class AgentCapabilityOutput: 
-    # Based on resources or file attachments, a list of short answers to the task 
+class AgentCapabilityOutput:
+    task: str
+    # Based on resources or file attachments, a list of short answers to the task
     answers: Optional[list[ShortAnswer]] = None
     # Produced resources
     resources: Optional[list[ContentResource]] = None
@@ -63,12 +64,17 @@ class AgentCapabilityDeepWebSearch(BaseAgentCapability):
         self.search_browser = search_browser
 
     def run(self) -> AgentCapabilityOutput:
+        resources = web_search(
+            self.activity,
+            brave_search_session=self.search_browser
+        )
+        links = [r.link for r in resources]
+        context = f"Downloaded content for: {links}, see resources that are passed to the next task. You should proceed to text processing!"
+        answer = [ShortAnswer(answered=True, answer=str(links), clarification=context)]
         return AgentCapabilityOutput(
-            answers=None,
-            resources=web_search(
-                self.activity,
-                brave_search_session=self.search_browser
-            )
+            task=self.activity,
+            answers=answer,
+            resources=resources,
         )
 
 
@@ -78,12 +84,8 @@ class AgentCapabilityAudioProcessor(BaseAgentCapability):
 
     def run(self, resources: list[ContentResource]):
         
-        # FIXME: for testing, properly determine how to identify which resource to download 
-        resource = None
-        for r in resources:
-            if r.link.startswith("http"):
-                resource = r
-                break 
+        # FIXME: find a way to transcribe the correct audio file from the resources
+        resource = resources[0]
 
         # downloads the file from the web to local (do not provide extension)
         temp_folder = os.environ.get("TEMP_FILES_FOLDER", "./")
@@ -97,6 +99,7 @@ class AgentCapabilityAudioProcessor(BaseAgentCapability):
 
         short_answers = [construct_short_answer(self.activity, result)] 
         return AgentCapabilityOutput(
+            task=self.activity,
             answers=short_answers
         ) 
 
@@ -115,41 +118,40 @@ class AgentCapabilityUnstructuredDataProcessor(BaseAgentCapability):
         Args:
         ask (str): what data we are analysing 
         """
-        # FIXME: Handle all resources, not just the ones from web search
-        resource_contents = [web_resource.content for web_resource in resources]
+        resource_contents = [resource.content for resource in resources]
 
-        # TODO: make this more robust, also now can only handle resources that have text content
-        text  = "; \n\n |  ".join(resource_contents)
+        # Join contents all together to give to a chunk splitter  
+        text  = "\n".join(resource_contents)
 
         answers = text_process_llm(self.activity, text)
         short_answers = [construct_short_answer(self.activity, answer) for answer in answers] 
 
         return AgentCapabilityOutput(
-            answers=short_answers
+            task=self.activity,
+            answers=short_answers,
+            resources=[]
         )
 
 
-class AgentCapabilityCodeWritterExecutor(BaseAgentCapability):
+class AgentCapabilityCodeWriterExecutor(BaseAgentCapability):
     """Capability for writing and executing python code"""
     name = "code_writing_execution"
 
     def run(self, resources:list[ContentResource]) -> AgentCapabilityOutput:
-        """ 
-        TODO: determine how to pass resources in the output here?
-        """
         # Analyse the given resources, determine what the files contain (EDA)
         eda_code = write_python_eda(resources)
         eda_result = run_code(eda_code)  
-        logger.info(f"- AgentCapabilityCodeWritterExecutor.run -- EDA code to be executed:\n{eda_code}")
-        # Given the activity=task and what EDA results determine the final code that would produce the result
-        task_code = write_python_code_task(task=self.activity, eda_results=eda_result, resources=resources)
-        logger.info(f"- AgentCapabilityCodeWritterExecutor.run -- Final code to be executed:\n{task_code}")
+        logger.info(f"- {AgentCapabilityCodeWriterExecutor.__name__} -- EDA code to be executed:\n{eda_code}")
+        # Given the activity=task and what EDA results show the final code that would produce the result
+        task_code = write_python_task(task=self.activity, eda_results=eda_result, resources=resources)
+        logger.info(f"- {AgentCapabilityCodeWriterExecutor.__name__} -- Final code to be executed:\n{task_code}")
         result = run_code(task_code)
-        short_answers = [construct_short_answer(self.activity, result)] 
-        
-        # TODO: determine whether we want to create new resources here? always store info from running the scripts..
+        short_answers = [construct_short_answer(self.activity, result)]
+
         return AgentCapabilityOutput(
-            answers=short_answers
+            task=self.activity,
+            answers=short_answers,
+            resources=resources,
         ) 
 
 @dataclass
@@ -161,7 +163,7 @@ class CapabilityPlan:
         AgentCapabilityAudioProcessor.name: AgentCapabilityAudioProcessor,
         AgentCapabilityImageProcessor.name: AgentCapabilityImageProcessor,
         AgentCapabilityUnstructuredDataProcessor.name: AgentCapabilityUnstructuredDataProcessor,
-        AgentCapabilityCodeWritterExecutor.name: AgentCapabilityCodeWritterExecutor,
+        AgentCapabilityCodeWriterExecutor.name: AgentCapabilityCodeWriterExecutor,
     }
 
     @classmethod
