@@ -32,7 +32,8 @@ Available resources:
 Instructions:
 1. Clarify the Core Objective: Start by rephrasing the user's goal as a single, clear, and specific objective.
 2. Extract Resources: Identify any URLs or URIs mentioned in the user's goal and list them as the resource. Provide a short description (content) and the link for the resource.
-3. Develop a Chronological Action Plan: Break down the objective into a logical sequence of high-level steps (aim for 1 or 2 steps).
+3. Identify what information and steps are still missing to achieve the goal, i.e., answer the question.  
+4. Develop a Chronological Action Plan: Break down the objective into a logical sequence of high-level steps (aim for 1, 2 or 3 steps).
 
 Example Output Format (ALWAYS **JSON**):
 {{
@@ -73,10 +74,10 @@ where
     "A short explanation of the first logical step", 
     "The concluding step",
   ]
-  **IMPORTANT**: you should only include the minimum number of steps to accomplish the task (*strive for 1 or 2*), do not include verification steps.
+  **IMPORTANT**: you should only include the minimum number of steps to accomplish the task, do not include verification steps.
   **IMPORTANT**: do not include any json formatting directives, output plain json string.
-  **IMPORTANT**: only include the resource that is explicitly mentioned in the user's goal/ask as URLs or URIs. 
-  If no resource (link or path) is mentioned, do not include resource key in the answer 
+  **IMPORTANT**: only include the resource that is explicitly mentioned in the user's goal/ask as URLs or URIs. DO NOT DUPLICATE THE EXISTING RESOURCES !!!
+   If no resource (link or path) is mentioned, do not include resource key in the answer 
 """
     task_response = llm.complete(prompt)
 
