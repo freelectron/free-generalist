@@ -80,7 +80,7 @@ def duckduckgo_search(query: str, max_results: int = 1) -> list[WebSearchResult]
 
     return found_resources
 
-def brave_search(query: str, max_results: int = 1, brave_search_session: Optional[BraveBrowser] = None) -> list[dict]:
+def brave_search(query: str, max_results: int, brave_search_session: Optional[BraveBrowser] = None) -> list[dict]:
     """ 
     Performs a Brave Web search and returns results as WebResource objects.
 
@@ -241,7 +241,7 @@ def download_content(resource: WebSearchResult) -> str:
 
     return extract_clean_text(html_content)
 
-def web_search(question: str, links_per_query: int = 2, brave_search_session: Optional[BraveBrowser] = None) -> list[ContentResource]:
+def web_search(question: str, links_per_query: int = 1, brave_search_session: Optional[BraveBrowser] = None) -> list[ContentResource]:
     """Orchestrates the full web search process for a given question.
 
     This process includes:

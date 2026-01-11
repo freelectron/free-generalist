@@ -89,10 +89,6 @@ def determine_capabilities(task: Task, context: str = "") -> CapabilityPlan:
     Analyzes a task and automatically determines which step from the plan should be executed next
     based on the context, then selects the single most appropriate capability for that step.
 
-    TODO: implement
-      - `{AgentCapabilityStructuredDataProcessor.name}`: Analyze, query, or visualize data from structured files like Parquet, CSV, JSON, or databases.
-      - `{AgentCapabilityImageProcessor.name}`: Download image, analyze an image to identify objects, read text (OCR), or understand its content.
-
     Returns:
         CapabilityPlan: A dataclass containing a single sub-task with the chosen capability.
     """
@@ -101,7 +97,7 @@ You are a highly intelligent planning agent. Your primary function is to analyze
 
 Capabilities:
 - `{AgentCapabilityDeepWebSearch.name}`: Find, evaluate, and download web content (e.g., articles, documents). This capability is for search and downloading web resources only, not for processing the content or getting any answers on the content.
-- `{AgentCapabilityUnstructuredDataProcessor.name}`: Analyze, summarize, extract information from, or answer questions about raw text or documents (e.g., PDFs, TXT files, retrieved web content).
+- `{AgentCapabilityUnstructuredDataProcessor.name}`: Analyze, summarize, extract information from, or answer questions about, raw text already stored in memory.
 - `{AgentCapabilityCodeWriterExecutor.name}`: Generate or execute code, solve mathematical problems, or perform complex logical operations and computations on files.
 - `{AgentCapabilityAudioProcessor.name}`: Download audio file, transcribes speech.
 
