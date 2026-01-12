@@ -141,10 +141,10 @@ class AgentCapabilityCodeWriterExecutor(BaseAgentCapability):
         # Analyse the given resources, determine what the files contain (EDA)
         eda_code = write_python_eda(resources)
         eda_result = run_code(eda_code)  
-        logger.info(f"- {AgentCapabilityCodeWriterExecutor.__name__} -- EDA code to be executed:\n{eda_code}")
+        logger.info(f"- {AgentCapabilityCodeWriterExecutor.name} -- EDA code to be executed:\n{eda_code}")
         # Given the activity=task and what EDA results show the final code that would produce the result
         task_code = write_python_task(task=self.activity, eda_results=eda_result, resources=resources)
-        logger.info(f"- {AgentCapabilityCodeWriterExecutor.__name__} -- Final code to be executed:\n{task_code}")
+        logger.info(f"- {AgentCapabilityCodeWriterExecutor.name} -- Final code to be executed:\n{task_code}")
         result = run_code(task_code)
         short_answers = [construct_short_answer(self.activity, result)]
 
@@ -152,7 +152,7 @@ class AgentCapabilityCodeWriterExecutor(BaseAgentCapability):
             task=self.activity,
             answers=short_answers,
             resources=resources,
-        ) 
+        )
 
 @dataclass
 class CapabilityPlan:

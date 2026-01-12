@@ -273,7 +273,7 @@ def web_search(question: str, links_per_query: int = 1, brave_search_session: Op
     for search in unique_search_results:
         content = download_content(search)
         populated_resource = ContentResource(
-            provided_by=web_search.__name__,
+            provided_by="deep_web_search",
             content=content,
             link=search.link,
             metadata=search.metadata

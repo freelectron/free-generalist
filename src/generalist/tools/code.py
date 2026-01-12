@@ -16,20 +16,20 @@ def write_python_eda(resources:list[ContentResource]) -> str:
     Exploratory Data Analysis
     """
     prompt = f"""
-    You may be given resources that could be binary or text files.
-    Your task is to describe what each resource contains.
+    You MAY BE given a list of resources that contains local binary or text files.
+    Your task is to describe what each local resource contains.
 
     Write python code that would first try to load each resource and then inspect its contents.
     You may use popular or standard python libraries. 
 
     Your code should output meta information for each file.
     For example, if you are given and .csv or .xls file, output the columns that it contains and provide basical schema and datatypes. 
-    If you are given an audio or video file, process it to transcribe. 
 
     Resources:
-    {resources}
-
-    Start your python code now.  
+    {resources}    
+    
+    **IMPORTANT**: if no local files are given in the Resources section, write a python command that prints "No resources to analyse"  
+    Start your python code now. 
     """
     result = llm.complete(prompt)
     
