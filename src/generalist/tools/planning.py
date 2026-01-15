@@ -68,7 +68,7 @@ where
   "objective" 's value in the json is a clear, one-sentence summary of the end goal,
   "resource" 's value in the json is a dictionary, containing:
     - "content": a brief description of what the resource is OR the contents of the file 
-    - "link": the URL or URI mentioned in the task
+    - "link": the URL or URI mentioned in the task (AND NOT MENTIONED Available resources section already)
   "plan" 's value in the json is a list **ALWAYS SEPARATED BY PYTHON NEWLINE CHARACTER** like 
   [
     "A short explanation of the first logical step", 
@@ -76,7 +76,8 @@ where
   ]
   **IMPORTANT**: you should only include the minimum number of steps to accomplish the task, do not include verification steps.
   **IMPORTANT**: do not include any json formatting directives, output plain json string.
-  **IMPORTANT**: only include the resource that is explicitly mentioned in the user's goal/ask as URLs or URIs. DO NOT DUPLICATE THE EXISTING RESOURCES !!!
+  **IMPORTANT**: only include the resource that is explicitly mentioned in the user's goal/ask as URLs or URIs. 
+  **IMPORTANT**: DO NOT DUPLICATE EXISTING RESOURCES !!!
    If no resource (link or path) is mentioned, do not include resource key in the answer 
 """
     task_response = llm.complete(prompt)

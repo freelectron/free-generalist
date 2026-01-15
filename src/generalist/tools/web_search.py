@@ -17,7 +17,7 @@ from clog import get_logger
 logger = get_logger(__name__)
 
 
-def question_to_queries(question: str, max_queries: int = 2) -> list[str]:
+def question_to_queries(question: str, max_queries: int = 1) -> list[str]:
     """Converts a user question into a list of optimized search engine queries.
 
     Note:
@@ -41,11 +41,14 @@ def question_to_queries(question: str, max_queries: int = 2) -> list[str]:
 
     Example Output:
     Large urban population areas in Europe|Biggest cities in Europe
+
+    START NOW:
     """
     llm_response = llm.complete(prompt)
     response_text = llm_response.text
 
-    return response_text.strip().split("|")
+    queries = response_text.strip().split("|")
+    return queries[:max_queries]
 
 
 def duckduckgo_search(query: str, max_results: int = 1) -> list[WebSearchResult]:
@@ -237,11 +240,10 @@ def download_content(resource: WebSearchResult) -> str:
     charset = response.encoding or 'utf-8'
     html_bytes = response.content
     html_content = html_bytes.decode(charset)
-    logger.finfo(f"download_content:\n {html_content}.")
 
     return extract_clean_text(html_content)
 
-def web_search(question: str, links_per_query: int = 1, brave_search_session: Optional[BraveBrowser] = None) -> list[ContentResource]:
+def web_search(question: str, queries_per_question: int = 1, links_per_query: int = 1, brave_search_session: Optional[BraveBrowser] = None) -> list[ContentResource]:
     """Orchestrates the full web search process for a given question.
 
     This process includes:
@@ -251,13 +253,14 @@ def web_search(question: str, links_per_query: int = 1, brave_search_session: Op
 
     Args:
         question: The user's question.
+        queries_per_question: n of the list of optimized search engine queries for the question.
         links_per_query: The number of web links to retrieve for each search query.
         brave_search_session: selenium browser search with Brave
 
     Returns:
         A list of WebResource objects, with their 'content' field populated.
     """
-    candidate_queries = question_to_queries(question)
+    candidate_queries = question_to_queries(question, queries_per_question)
     logger.info(f"- {current_function()} -- Generated queries: {candidate_queries}")
 
     all_sources = []

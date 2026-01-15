@@ -122,8 +122,11 @@ class AgentCapabilityUnstructuredDataProcessor(BaseAgentCapability):
 
         # Join contents all together to give to a chunk splitter  
         text  = "\n".join(resource_contents)
-
         answers = text_process_llm(self.activity, text)
+
+        # Remove processed resources
+        resources.clear()
+
         short_answers = [construct_short_answer(self.activity, answer) for answer in answers] 
 
         return AgentCapabilityOutput(
@@ -151,7 +154,6 @@ class AgentCapabilityCodeWriterExecutor(BaseAgentCapability):
         return AgentCapabilityOutput(
             task=self.activity,
             answers=short_answers,
-            resources=resources,
         )
 
 @dataclass
