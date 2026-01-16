@@ -26,24 +26,35 @@ def write_python_eda(resources:list[ContentResource]) -> str:
         str: Generated EDA description or code that inspects the provided resources.
     """
     prompt = f"""
-    Resources:
+    You are programmer that writes well commented (you print comments to STDOUT) and simple python code. 
+    Given the following RESOURCES: 
     {resources}
-
-    Write python code that does Exploratory Data Analysis EDA on the resource(s).
-    Load only the files **necessary** for the task at hand and inspects them by:
-    1. Analysing what the task requires from a file or a set of files given (called resources);
-    2. Briefly inspecting the contents of the resources (if needed) and see what type of data and format they hold;
-    3. Checking the names of columns, variables, packages or anything that might be needed to solve the task in the next step.
     
-    If you are given some code (python) and the task is to execute, see what python packages are used. 
-    
+    For each resources that is a of ** .CSV , .PARQUET , .XLSX ** , write python code that: 
+        1. Briefly inspect the contents of the resources (if needed) and see what type of data and format they hold;
+        2. if the provided file are csv, parquet or excel: check the names of columns and describe the table.
+        
     **IMPORTANT**: never try to install any packages, assume that they are available. 
-    **IMPORTANT**: do not make any assumptions about the data (even based on the task) and columns/variables/function available. 
-    **IMPORTANT**: DO NOT CHANGE OR AUTOCORRECT THE RESOURCE LINKS, 
-        USE THEM HOW THEY ARE: {[ r.link for r in resources]}. 
-     
-    Provide in code comments on what you are doing, DO NOT give any additional text apart from python code.
-    Start your python code now (always include ```python\n(.*?)```).
+    **IMPORTANT**: do not make any assumptions about the data, explore columns and datatypes available. 
+    **IMPORTANT**: do not change or autocorrect the links in the resources      
+    **IMPORTANT**: instead of in-line code comments,  use `print` function to print those comments before the executing the command 
+        e.g., print("Loaded file from <folder_name>"), print("Found these columns in the csv file.")   
+
+    -------
+    Example
+    Resources: 
+        ContentResource(
+            provided_by='user', 
+            content='file provided with the main task',
+            link='/Users/anton.kerel/projects/freelectron/free-generalist/evaluation/gaia/2023/validation/3r938r93-f3f-222.xlsx', 
+            metadata={{'note': 'the file is already in the list of available resources'}}
+        )
+    You should start by opening the file : 
+        print("Loading '/Users/anton.kerel/projects/freelectron/free-generalist/evaluation/gaia/2023/validation/3r938r93-f3f-222.xlsx' ")
+         ..... the rest of the code ..... 
+                       
+    DO NOT give any additional text apart from python code. If resources ARE NOT .CSV , .PARQUET , .XLSX output: ```python print()```
+    Start your python code now (always include python formating directive ```python ```).
     """
     result = llm.complete(prompt)
     
@@ -68,27 +79,45 @@ def write_python_task(task: str, eda_results: str, resources: list[ContentResour
     Returns:
         str: Generated Python code as plain text.
     """
-    prompt = f"""
+    prompt = f"""    
     Task:
     {task}
 
     Resources:
     {resources}
 
-    Information about resources:
+    Exploratory Data Analysis results from resources:
     {eda_results}
 
     Write python code that:
     1. uses python standard libraries and COMMONLY USED ONLY packages 
-    2. reads the necessary info from only the necessary resources (using their url/uri links)
-    3. accomplishes the ask of the task
+    2. executes the task 
      
-    **IMPORTANT**: NEVER TRY TO INSTALL ANY PACKAGES. ASSUME THEY ARE AVAILABLE.
-    **IMPORTANT**: DO NOT CHANGE OR AUTOCORRECT THE RESOURCE LINKS, 
-        USE THEM HOW THEY ARE: {[ r.link for r in resources]}. 
+    **IMPORTANT**: never try to install any packages. Assume the most common are available.
+    **IMPORTANT**: do not change or autocorrect the resource links, e.g., <>/freelectron/<> should stay as 'freelectron'     
     
-    Provide in code comments on what you are doing, DO NOT give any additional text apart from python code.
-    Start your python code now (always include ```python\n(.*?)```).
+    -------
+    Example
+    Task: get the sum of the columns representing directions  
+    Resources: 
+        ContentResource(
+            provided_by='user', 
+            content='file provided with the main task',
+            link='/Users/anton.kerel/projects/freelectron/free-generalist/evaluation/gaia/2023/validation/3r938r93-f3f-222.xlsx', 
+            metadata={{'note': 'the file is already in the list of available resources'}}
+        )
+    Exploratory Data Analysis results from resources: 
+        "Loaded '/Users/anton.kerel/projects/freelectron/free-generalist/evaluation/gaia/2023/validation/3r938r93-f3f-222.xlsx' "
+         'Available columns: "up", "down", "sales" '
+     You should start by:
+        import pandas as pd 
+        df = pd.read_excel('/Users/anton.kerel/projects/freelectron/free-generalist/evaluation/gaia/2023/validation/3r938r93-f3f-222.xlsx')
+        up_sum = df["up"].sum()
+        down_sum = df["down"].sum()
+        print("total:", up_sum + down_sum)
+        
+    Provide in code comments on what you are doing, DO NOT give any additional text apart from python code and comments.
+    Start your python code now (always include python formating directive ```python ```).
     """
     result = llm.complete(prompt)
 
@@ -100,8 +129,11 @@ def run_code(text_with_code: str) -> str:
     The child process will have the same packages available as the parent one.
     """
     code_match = re.search(r"```python\n(.*?)```", text_with_code, re.DOTALL)
+    if not code_match:
+        return "--- No python code block found, try to rerunning the step ---"
     extracted_code = code_match.group(1)
 
+    # TODO: to double check,
     process = subprocess.run(
         [sys.executable, "-c", extracted_code],
         capture_output=True,
