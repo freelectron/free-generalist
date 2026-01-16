@@ -31,7 +31,9 @@ Available resources:
 
 Instructions:
 1. Clarify the Core Objective: Start by rephrasing the user's goal as a single, clear, and specific objective.
-2. Extract Resources: Identify any URLs or URIs mentioned in the user's goal and list them as the resource. Provide a short description (content) and the link for the resource.
+2. Extract Resources: Identify any URLs or URIs mentioned in "User's Goal" and NOT ALREADY MENTIONED in the of list of available resource. 
+    If available resources DO NOT already include links or files mentioned in the user's tak, 
+    provide a short description (content) and the link for the resource.
 3. Identify what information and steps are still missing to achieve the goal, i.e., answer the question.  
 4. Develop a Chronological Action Plan: Break down the objective into a logical sequence of high-level steps (aim for 1, 2 or 3 steps).
 

@@ -142,7 +142,7 @@ class AgentCapabilityCodeWriterExecutor(BaseAgentCapability):
 
     def run(self, resources:list[ContentResource]) -> AgentCapabilityOutput:
         # Analyse the given resources, determine what the files contain (EDA)
-        eda_code = write_python_eda(resources)
+        eda_code = write_python_eda(resources=resources)
         eda_result = run_code(eda_code)  
         logger.info(f"- {AgentCapabilityCodeWriterExecutor.name} -- EDA code to be executed:\n{eda_code}")
         # Given the activity=task and what EDA results show the final code that would produce the result

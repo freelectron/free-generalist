@@ -3,6 +3,11 @@ import regex as re
 
 from .data_model import ShortAnswer
 from ..models.core import llm
+from ..utils import current_function
+from clog import get_logger
+
+
+logger = get_logger(__name__)
 
 
 def construct_short_answer(task: str, context: str) -> ShortAnswer:
@@ -81,9 +86,10 @@ def construct_short_answer(task: str, context: str) -> ShortAnswer:
     if len(code_string) > 1: 
         response_text = code_string
 
+    logger.info(f"- {current_function()} -- Short answer:\n{response_text}.")
     data = json.loads(response_text)
     return ShortAnswer(
-        answered=True if data.get("answered") in ["True", "true", "yes", "1"] else False,
-        answer=data.get("answer", "did-not-parse"),
-        clarification=data.get("clarification", "did-not-parse.")
-    )
+            answered=True if data.get("answered") in ["True", "true", "yes", "1"] else False,
+            answer=data.get("answer", "did-not-parse"),
+            clarification=data.get("clarification", "did-not-parse.")
+        )
