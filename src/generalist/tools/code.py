@@ -5,6 +5,7 @@ import sys
 from ..tools.data_model import ContentResource
 from ..models.core import llm
 from clog import get_logger
+from ..utils import current_function
 
 
 logger = get_logger(__name__)
@@ -27,8 +28,6 @@ def write_python_eda(resources:list[ContentResource]) -> str:
     """
     prompt = f"""
     You are programmer that writes well commented (you print comments to STDOUT) and simple python code. 
-    Given the following RESOURCES: 
-    {resources}
     
     For each resources that is a of ** .CSV , .PARQUET , .XLSX ** , write python code that: 
         1. Briefly inspect the contents of the resources (if needed) and see what type of data and format they hold;
@@ -36,10 +35,13 @@ def write_python_eda(resources:list[ContentResource]) -> str:
         
     **IMPORTANT**: never try to install any packages, assume that they are available. 
     **IMPORTANT**: do not make any assumptions about the data, explore columns and datatypes available. 
-    **IMPORTANT**: do not change or autocorrect the links in the resources      
     **IMPORTANT**: instead of in-line code comments,  use `print` function to print those comments before the executing the command 
         e.g., print("Loaded file from <folder_name>"), print("Found these columns in the csv file.")   
-
+    **IMPORTANT**: do not autocorrect the links in the resources      
+    
+    To Remember: 
+      - freelectron : is a valid directory and the correct spelling 
+    
     -------
     Example
     Resources: 
@@ -52,8 +54,13 @@ def write_python_eda(resources:list[ContentResource]) -> str:
     You should start by opening the file : 
         print("Loading '/Users/anton.kerel/projects/freelectron/free-generalist/evaluation/gaia/2023/validation/3r938r93-f3f-222.xlsx' ")
          ..... the rest of the code ..... 
-                       
+            
     DO NOT give any additional text apart from python code. If resources ARE NOT .CSV , .PARQUET , .XLSX output: ```python print()```
+    
+    -------
+    You should look at the following the following resources: 
+    {resources}
+    
     Start your python code now (always include python formating directive ```python ```).
     """
     result = llm.complete(prompt)
@@ -94,7 +101,7 @@ def write_python_task(task: str, eda_results: str, resources: list[ContentResour
     2. executes the task 
      
     **IMPORTANT**: never try to install any packages. Assume the most common are available.
-    **IMPORTANT**: do not change or autocorrect the resource links, e.g., <>/freelectron/<> should stay as 'freelectron'     
+    **IMPORTANT**: DO NOT CHANGE or autocorrect the resource links   
     
     -------
     Example
@@ -109,13 +116,16 @@ def write_python_task(task: str, eda_results: str, resources: list[ContentResour
     Exploratory Data Analysis results from resources: 
         "Loaded '/Users/anton.kerel/projects/freelectron/free-generalist/evaluation/gaia/2023/validation/3r938r93-f3f-222.xlsx' "
          'Available columns: "up", "down", "sales" '
-     You should start by:
+    You should start by:
         import pandas as pd 
         df = pd.read_excel('/Users/anton.kerel/projects/freelectron/free-generalist/evaluation/gaia/2023/validation/3r938r93-f3f-222.xlsx')
         up_sum = df["up"].sum()
         down_sum = df["down"].sum()
         print("total:", up_sum + down_sum)
-        
+    
+    To Remember: 
+      - freelectron : is a valid directory and the correct spelling 
+    
     Provide in code comments on what you are doing, DO NOT give any additional text apart from python code and comments.
     Start your python code now (always include python formating directive ```python ```).
     """
@@ -133,18 +143,21 @@ def run_code(text_with_code: str) -> str:
         return "--- No python code block found, try to rerunning the step ---"
     extracted_code = code_match.group(1)
 
-    # TODO: to double check,
-    process = subprocess.run(
-        [sys.executable, "-c", extracted_code],
-        capture_output=True,
-        text=True,
-        check=False # Don't raise an exception for non-zero exit codes
-    )
+    process = None
+    try:
+        process = subprocess.run(
+            [sys.executable, "-c", extracted_code],
+            capture_output=True,
+            text=True,
+            check=False # Don't raise an exception for non-zero exit codes
+        )
+    except Exception as e:
+        logger.error(f"Error in {current_function()}: {e}")
 
     output_string = ""
-    if process.stdout:
+    if process and process.stdout:
         output_string += f"--- STDOUT ---\n{process.stdout}\n"
-    if process.stderr:
+    if process and process.stderr:
         output_string += f"--- STDERR ---\n{process.stderr}\n"
     if not output_string.strip():
         output_string = "--- No output produced ---"
