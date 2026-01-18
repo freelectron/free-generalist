@@ -5,12 +5,35 @@ from langchain_text_splitters import CharacterTextSplitter
 from .data_model import ContentResource
 from ..models.core import llm
 from clog import get_logger
-from ..utils import current_function
+
 
 logger = get_logger(__name__)
 
 
 def parse_resource(task: str):
+    """Detect a file or online resource link in a task using the LLM.
+
+    Sends a prompt to the configured LLM asking it to identify whether the
+    provided `task` contains a link to a file or an online resource. If the
+    LLM identifies a resource, it should return a JSON object with the
+    following keys: ``provided_by``, ``content``, and ``link``.
+
+    The function returns a ``ContentResource`` built from the parsed JSON when
+    a resource is found. If the LLM responds with the string ``NOT FOUND``,
+    the function returns ``None``.
+
+    Args:
+        task: The user instruction or task string to inspect for a resource link.
+
+    Returns:
+        A ``ContentResource`` populated from the LLM output if a resource was
+        identified; otherwise ``None``.
+
+    Raises:
+        json.JSONDecodeError: If the LLM indicates a resource but returns
+            invalid JSON.
+        KeyError: If the parsed JSON is missing required keys.
+    """
     prompt = f"""
     You are given a task identify if it contains a link to a file or a resources online.
     If it does, produce a json with the following structure: 
@@ -51,7 +74,7 @@ def parse_resource(task: str):
 
     if "NOT FOUND" not in response.text:
         json_content = response.text
-        logger.info(f"- {current_function()} -- JSON to parse to determine resources: {json_content}")
+        logger.info(f"JSON to parse to determine resources: {json_content}")
         loaded_dict = json.loads(json_content)
 
         return ContentResource(
@@ -63,7 +86,7 @@ def parse_resource(task: str):
 
     return None
 
-def task_with_text_llm(task: str, text: str) -> str:
+def _process_chunk(task: str, text: str) -> str:
     """Performs a task on a single block of text using an LLM.
 
     This function is a general-purpose processor that asks an LLM to execute
@@ -96,8 +119,8 @@ def task_with_text_llm(task: str, text: str) -> str:
     return llm_result.text
 
 
-def text_process_llm(task: str, text: str, chunk_size: int = 10000, chunk_overlap: int = 500) -> list[str]:
-    """Splits a large text into chunks and processes each chunk with an LLM.
+def process_text(task: str, text: str, chunk_size: int = 10000, chunk_overlap: int = 500) -> list[str]:
+    """Splits a large text into chunks and processes each chunk with an LLM to perform the mentioned task..
 
     This is useful for analyzing documents that are too large to fit into a
     single LLM context window. Each chunk is processed independently.
@@ -120,7 +143,7 @@ def text_process_llm(task: str, text: str, chunk_size: int = 10000, chunk_overla
 
     responses = []
     for chunk in chunks:
-        chunk_response = task_with_text_llm(task, chunk)
+        chunk_response = _process_chunk(task, chunk)
         if "NOT FOUND" not in chunk_response:
             responses.append(chunk_response)
 

@@ -10,14 +10,13 @@ from browser.search.web import BraveBrowser
 from ..tools import NOT_FOUND_LITERAL
 from ..tools.data_model import ContentResource, WebSearchResult
 from ..models.core import llm
-from ..utils import current_function
 from clog import get_logger
 
 
 logger = get_logger(__name__)
 
 
-def question_to_queries(question: str, max_queries: int = 1) -> list[str]:
+def _question_to_queries(question: str, max_queries: int = 1) -> list[str]:
     """Converts a user question into a list of optimized search engine queries.
 
     Note:
@@ -51,7 +50,7 @@ def question_to_queries(question: str, max_queries: int = 1) -> list[str]:
     return queries[:max_queries]
 
 
-def duckduckgo_search(query: str, max_results: int = 1) -> list[WebSearchResult]:
+def _duckduckgo_search(query: str, max_results: int = 1) -> list[WebSearchResult]:
     """Performs a DuckDuckGo search and returns results as WebResource objects.
 
     Args:
@@ -83,7 +82,7 @@ def duckduckgo_search(query: str, max_results: int = 1) -> list[WebSearchResult]
 
     return found_resources
 
-def brave_search(query: str, max_results: int, brave_search_session: Optional[BraveBrowser] = None) -> list[dict]:
+def _brave_search(query: str, max_results: int, brave_search_session: Optional[BraveBrowser] = None) -> list[dict]:
     """ 
     Performs a Brave Web search and returns results as WebResource objects.
 
@@ -148,7 +147,7 @@ def brave_search(query: str, max_results: int, brave_search_session: Optional[Br
     if not brave_search_session:
         base_search_url = "https://search.brave.com/search?q="
         search_url = base_search_url + "+".join(query.split(" "))
-        logger.info(f"- {current_function()} -- Searching url: {search_url}")
+        logger.info(f"Searching url: {search_url}")
         headers = {
             'Accept-Encoding': 'gzip, deflate',
             'User-Agent': 'Chrome/122.0.0.0',
@@ -178,7 +177,7 @@ def brave_search(query: str, max_results: int, brave_search_session: Optional[Br
     return found_resources
 
 
-def drop_non_unique_link(resources: list[ContentResource|WebSearchResult]) -> list[ContentResource|WebSearchResult]:
+def _drop_non_unique_link(resources: list[ContentResource | WebSearchResult]) -> list[ContentResource | WebSearchResult]:
     """Removes duplicate WebResource objects based on their 'link' attribute.
 
     Args:
@@ -196,7 +195,7 @@ def drop_non_unique_link(resources: list[ContentResource|WebSearchResult]) -> li
     return unique_resources
 
 
-def extract_clean_text(raw_html: str) -> str:
+def _extract_clean_text(raw_html: str) -> str:
     """Extracts clean, readable text from raw HTML content.
 
     This function removes scripts, styles, navigation, and other non-content
@@ -219,7 +218,7 @@ def extract_clean_text(raw_html: str) -> str:
     chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
     return ' '.join(chunk for chunk in chunks if chunk)
 
-def download_content(resource: WebSearchResult) -> str:
+def _download_content(resource: WebSearchResult) -> str:
     """
     Downloads the HTML from a resource's link and populates its 'content' field.
     This version includes robust URL encoding and safe error printing.
@@ -241,9 +240,9 @@ def download_content(resource: WebSearchResult) -> str:
     html_bytes = response.content
     html_content = html_bytes.decode(charset)
 
-    return extract_clean_text(html_content)
+    return _extract_clean_text(html_content)
 
-def web_search(question: str, queries_per_question: int = 1, links_per_query: int = 1, brave_search_session: Optional[BraveBrowser] = None) -> list[ContentResource]:
+def web_search(question: str, brave_search_session: Optional[BraveBrowser] = None, **kwargs) -> list[dict[str, str|WebSearchResult]]:
     """Orchestrates the full web search process for a given question.
 
     This process includes:
@@ -253,35 +252,35 @@ def web_search(question: str, queries_per_question: int = 1, links_per_query: in
 
     Args:
         question: The user's question.
-        queries_per_question: n of the list of optimized search engine queries for the question.
-        links_per_query: The number of web links to retrieve for each search query.
         brave_search_session: selenium browser search with Brave
 
     Returns:
         A list of WebResource objects, with their 'content' field populated.
     """
-    candidate_queries = question_to_queries(question, queries_per_question)
-    logger.info(f"- {current_function()} -- Generated queries: {candidate_queries}")
+    #  number of queries to generate per question
+    queries_per_question = kwargs.get("queries_per_question", 1)
+    #  number of web links to retrieve for each search query.
+    links_per_query = kwargs.get("links_per_query", 1)
+
+    candidate_queries = _question_to_queries(question, queries_per_question)
+    logger.info(f"Generated queries: {candidate_queries}")
 
     all_sources = []
     for query in candidate_queries:
-        # Alternative: use duckduckgo_search(query, links_per_query)
-        search_results_for_query = brave_search(query, links_per_query, brave_search_session)
+        search_results_for_query = _brave_search(query, links_per_query, brave_search_session)
         all_sources.extend(search_results_for_query)
 
-    unique_search_results = drop_non_unique_link(all_sources)
+    unique_search_results = _drop_non_unique_link(all_sources)
     logger.info(f"Found {len(unique_search_results)} unique sources.\n{unique_search_results}")
 
     final_resources = []
     for search in unique_search_results:
-        content = download_content(search)
-        populated_resource = ContentResource(
-            provided_by="deep_web_search",
-            content=content,
-            link=search.link,
-            metadata=search.metadata
-        )
-        if populated_resource.content: # Only keep resources where content was successfully downloaded
+        content = _download_content(search)
+        if content:
+            populated_resource = {
+                "content": content,
+                "search_result": search,
+            }
             final_resources.append(populated_resource)
 
     return final_resources

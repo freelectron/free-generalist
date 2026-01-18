@@ -1,6 +1,6 @@
 import json
 
-from ..agents.core import AgentCapabilityAudioProcessor, AgentCapabilityCodeWriterExecutor, AgentCapabilityDeepWebSearch, AgentCapabilityUnstructuredDataProcessor, CapabilityPlan
+from ..agents.core import AgentAudioProcessor, AgentCodeWriterExecutor, AgentDeepWebSearch, AgentUnstructuredDataProcessor, AgentPlan
 from .data_model import Task
 from ..models.core import llm
 from ..tools.data_model import ContentResource
@@ -116,23 +116,23 @@ where
     return task_response.text
 
 
-def determine_capabilities(task: Task, context: str = "") -> CapabilityPlan:
+def determine_capabilities(task: Task, context: str = "") -> AgentPlan:
     """
     Analyzes a task and automatically determines which step from the plan should be executed next
     based on the context, then selects the single most appropriate capability for that step.
 
     Returns:
-        CapabilityPlan: A dataclass containing a single sub-task with the chosen capability.
+        AgentPlan: A dataclass containing a single sub-task with the chosen capability.
     """
     planning_prompt = f"""
 You are a planning agent. Inspect the Task (including its `plan`) and the provided `context` (what was already done).
 Choose the single next logical step to execute and the one best capability to perform it.
 
 Capabilities:
-- `{AgentCapabilityDeepWebSearch.name}`: search and download web resources only, not for processing the content or getting any answers on the content.
-- `{AgentCapabilityUnstructuredDataProcessor.name}`: analyze or extract information from text already in memory.
-- `{AgentCapabilityCodeWriterExecutor.name}`: write or run code and/or manipulate files.
-- `{AgentCapabilityAudioProcessor.name}`: download/transcribe audio and store results in memory.
+- `{AgentDeepWebSearch.name}`: search and download web resources only, not for processing the content or getting any answers on the content.
+- `{AgentUnstructuredDataProcessor.name}`: analyze or extract information from text already in memory.
+- `{AgentCodeWriterExecutor.name}`: write or run code and/or manipulate files.
+- `{AgentAudioProcessor.name}`: download/transcribe audio and store results in memory.
 
 Rules:
 1. Pick exactly one step to perform now and exactly one capability.
@@ -153,13 +153,13 @@ Output:
   "subplan": [
     {{
       "activity": "Search for the current age of Leonardo DiCaprio online",
-      "capability": "{AgentCapabilityDeepWebSearch.name}"
+      "capability": "{AgentDeepWebSearch.name}"
     }}
   ]
 }}
-Reasoning: Step 0 is completed: main actor identified as Leonardo DiCaprio from previous "{AgentCapabilityDeepWebSearch.name}" -> "{AgentCapabilityUnstructuredDataProcessor.name}" steps.
+Reasoning: Step 0 is completed: main actor identified as Leonardo DiCaprio from previous "{AgentDeepWebSearch.name}" -> "{AgentUnstructuredDataProcessor.name}" steps.
     We proceed to step 1 and incorporate the discovered name into the another search activity
-     which will be followed by "{AgentCapabilityUnstructuredDataProcessor.name}" to actually retrieve the age from the downloaded sources.  
+     which will be followed by "{AgentUnstructuredDataProcessor.name}" to actually retrieve the age from the downloaded sources.  
 
 Example 2: Using context to refine the next action
 Task: "Task(objective='Summarize the article about climate change', plan=['Search for and download the article', 'Extract key information from the article'])"
@@ -169,7 +169,7 @@ Output:
   "subplan": [
     {{
         "activity": "Analyze and extract key information about Arctic climate change from the article (content is provided in resources)",
-        "capability": "{AgentCapabilityUnstructuredDataProcessor.name}"
+        "capability": "{AgentUnstructuredDataProcessor.name}"
     }}
   ]
 }}

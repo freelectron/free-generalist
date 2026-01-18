@@ -3,7 +3,8 @@ import os
 from datetime import datetime
 from typing import Optional
 
-LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+
+LOG_FORMAT = '%(asctime)s - %(name)s - %(funcName)s:%(lineno)d - %(levelname)s - %(message)s'
 
 
 def create_log_folder() -> str:
@@ -56,28 +57,30 @@ class CLogger(logging.Logger):
 
     def fdebug(self, msg):
         self.switch_to_file()
-        self.debug(msg)
+        self.debug(msg, stacklevel=2)
+
         self.switch_to_console()
 
     def finfo(self, msg):
         self.switch_to_file()
-        self.info(msg)
+        self.info(msg, stacklevel=2)
         self.switch_to_console()
 
     def fwarn(self, msg):
         self.switch_to_file()
-        self.warning(msg)
+        self.warning(msg, stacklevel=2)
         self.switch_to_console()
 
     def ferror(self, msg):
         self.switch_to_file()
-        self.error(msg)
+        self.error(msg, stacklevel=2)
         self.switch_to_console()
 
     def fcritical(self, msg):
         self.switch_to_file()
-        self.critical(msg)
+        self.critical(msg, stacklevel=2)
         self.switch_to_console()
+
 
 def get_logger(name: str, file_name: Optional[str] = None):
     level = logging.INFO

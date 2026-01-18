@@ -5,12 +5,12 @@ from dataclasses import dataclass, field
 
 from browser.search.web import BraveBrowser
 from ..tools.summarisers import construct_short_answer
-from ..tools.text_processing import text_process_llm
+from ..tools.text_processing import process_text
 from ..tools.web_search import web_search 
 from ..tools.data_model import ContentResource, ShortAnswer
 from ..tools.code import write_python_eda, run_code, write_python_task
-from ..tools.media_download import download_audio
-from ..tools.audio_transcribe import transcribe_mp3_file
+from ..tools.media import download_audio
+from ..tools.media import transcribe_mp3
 from ..utils import current_function
 from clog import get_logger
 
@@ -19,7 +19,7 @@ logger = get_logger(__name__)
 
 
 @dataclass
-class AgentCapabilityOutput:
+class AgentOutput:
     task: str
     # Based on resources or file attachments, a list of short answers to the task
     answers: Optional[list[ShortAnswer]] = None
@@ -27,7 +27,7 @@ class AgentCapabilityOutput:
     resources: Optional[list[ContentResource]] = None
 
 
-class BaseAgentCapability:
+class BaseAgent:
     """Base class for all agent capabilities."""
     name: str  # Defines that all subclasses should have a 'name' class attribute
 
@@ -48,37 +48,52 @@ class BaseAgentCapability:
         # 'self.name' correctly accesses the class attribute from the instance
         return f"{self.__class__.__name__}(name='{self.name}', activity='{self.activity}')"
     
-    def run(self, *args, **kwargs) -> AgentCapabilityOutput:
+    def run(self, *args, **kwargs) -> AgentOutput:
         """
         Execute the main logic of the agent.
         """
         raise NotImplementedError("Method `run` is not implemented")
 
 
-class AgentCapabilityDeepWebSearch(BaseAgentCapability):
+class AgentDeepWebSearch(BaseAgent):
     """Capability for performing a deep web search."""
     name = "deep_web_search"
 
     def __init__(self, activity: str, search_browser: Optional[BraveBrowser] = None):
         super().__init__(activity=activity)
         self.search_browser = search_browser
+        self.queries_per_question: int = 1
+        self.links_per_query: int = 1
 
-    def run(self) -> AgentCapabilityOutput:
-        resources = web_search(
+    def run(self) -> AgentOutput:
+        search_results = web_search(
             self.activity,
             brave_search_session=self.search_browser
         )
+        resources = []
+        for search_result in search_results:
+            content = search_result["content"]
+            search_result = search_result["search_result"]
+            resource = ContentResource(
+                provided_by=self.name,
+                content=content,
+                link=search_result.link,
+                metadata=search_result.metadata,
+            )
+            resources.append(resource)
+
         links = [r.link for r in resources]
         context = f"Downloaded content for: {links}, see resources that are passed to the next task. You should proceed to text processing!"
         answer = [ShortAnswer(answered=True, answer=str(links), clarification=context)]
-        return AgentCapabilityOutput(
+
+        return AgentOutput(
             task=self.activity,
             answers=answer,
             resources=resources,
         )
 
 
-class AgentCapabilityAudioProcessor(BaseAgentCapability):
+class AgentAudioProcessor(BaseAgent):
     """Capability for processing audio files."""
     name = "audio_processing"
 
@@ -95,25 +110,26 @@ class AgentCapabilityAudioProcessor(BaseAgentCapability):
         logger.info(f"- {current_function()} -- Downloaded file to {file_path} with meta info {meta}.")
 
         # transcribes the file and returns just the text
-        result = transcribe_mp3_file(file_path)
+        result = transcribe_mp3(file_path)
 
-        short_answers = [construct_short_answer(self.activity, result)] 
-        return AgentCapabilityOutput(
+        short_answers = [construct_short_answer(self.activity, result)]
+
+        return AgentOutput(
             task=self.activity,
             answers=short_answers
         ) 
 
 
-class AgentCapabilityImageProcessor(BaseAgentCapability):
+class AgentImageProcessor(BaseAgent):
     """Capability for processing image files."""
     name = "image_processing"
 
 
-class AgentCapabilityUnstructuredDataProcessor(BaseAgentCapability):
+class AgentUnstructuredDataProcessor(BaseAgent):
     """Capability for processing unstructured text."""
     name = "unstructured_data_processing"
 
-    def run(self, resources: list[ContentResource]) -> AgentCapabilityOutput:
+    def run(self, resources: list[ContentResource]) -> AgentOutput:
         """
         Args:
         ask (str): what data we are analysing 
@@ -122,57 +138,58 @@ class AgentCapabilityUnstructuredDataProcessor(BaseAgentCapability):
 
         # Join contents all together to give to a chunk splitter  
         text  = "\n".join(resource_contents)
-        answers = text_process_llm(self.activity, text)
+        answers = process_text(self.activity, text)
 
         # Remove processed resources
         resources.clear()
 
         short_answers = [construct_short_answer(self.activity, answer) for answer in answers] 
 
-        return AgentCapabilityOutput(
+        return AgentOutput(
             task=self.activity,
             answers=short_answers,
             resources=[]
         )
 
 
-class AgentCapabilityCodeWriterExecutor(BaseAgentCapability):
+class AgentCodeWriterExecutor(BaseAgent):
     """Capability for writing and executing python code"""
     name = "code_writing_execution"
 
-    def run(self, resources:list[ContentResource]) -> AgentCapabilityOutput:
+    def run(self, resources:list[ContentResource]) -> AgentOutput:
         # Analyse the given resources, determine what the files contain (EDA)
-        eda_code = write_python_eda(resources=resources)
-        logger.info(f"- {AgentCapabilityCodeWriterExecutor.name} -- EDA code to be executed:\n{eda_code}")
+        eda_code = do_eda_table(resources=resources)
+        logger.info(f"- {AgentCodeWriterExecutor.name} -- EDA code to be executed:\n{eda_code}")
         eda_result = run_code(eda_code)
-        logger.info(f"- {AgentCapabilityCodeWriterExecutor.name} -- EDA code result:\n{eda_result}")
+        logger.info(f"- {AgentCodeWriterExecutor.name} -- EDA code result:\n{eda_result}")
 
         task_code = write_python_task(task=self.activity, eda_results=eda_result, resources=resources)
-        logger.info(f"- {AgentCapabilityCodeWriterExecutor.name} -- Final code to be executed:\n{task_code}")
+        logger.info(f"- {AgentCodeWriterExecutor.name} -- Final code to be executed:\n{task_code}")
         result = run_code(task_code)
-        logger.info(f"- {AgentCapabilityCodeWriterExecutor.name} -- Final code result:\n{result}")
+        logger.info(f"- {AgentCodeWriterExecutor.name} -- Final code result:\n{result}")
 
         short_answers = [construct_short_answer(self.activity, result)]
 
-        return AgentCapabilityOutput(
+        return AgentOutput(
             task=self.activity,
             answers=short_answers,
         )
 
+
 @dataclass
-class CapabilityPlan:
+class AgentPlan:
     """A structured plan outlining the sequence of capabilities and actions."""
-    subplan: list[Tuple[str, BaseAgentCapability]]
+    subplan: list[Tuple[str, BaseAgent]]
     capability_map = {
-        AgentCapabilityDeepWebSearch.name: AgentCapabilityDeepWebSearch,
-        AgentCapabilityAudioProcessor.name: AgentCapabilityAudioProcessor,
-        AgentCapabilityImageProcessor.name: AgentCapabilityImageProcessor,
-        AgentCapabilityUnstructuredDataProcessor.name: AgentCapabilityUnstructuredDataProcessor,
-        AgentCapabilityCodeWriterExecutor.name: AgentCapabilityCodeWriterExecutor,
+        AgentDeepWebSearch.name: AgentDeepWebSearch,
+        AgentAudioProcessor.name: AgentAudioProcessor,
+        AgentImageProcessor.name: AgentImageProcessor,
+        AgentUnstructuredDataProcessor.name: AgentUnstructuredDataProcessor,
+        AgentCodeWriterExecutor.name: AgentCodeWriterExecutor,
     }
 
     @classmethod
-    def from_json(cls, json_data: dict) -> "CapabilityPlan":
+    def from_json(cls, json_data: dict) -> "AgentPlan":
         """
         Convert JSON response into a CapabilityPlan with proper capability objects.
         """
@@ -187,8 +204,4 @@ class CapabilityPlan:
             cap_class = cls.capability_map[cap_name]
             subplan.append((activity, cap_class))
 
-        return CapabilityPlan(subplan=subplan)
-
-
-
-
+        return AgentPlan(subplan=subplan)
