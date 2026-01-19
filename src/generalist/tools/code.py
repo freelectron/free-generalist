@@ -47,10 +47,10 @@ def do_table_eda(file_path: str) -> str:
         output.append("\n--- Data Types ---")
         output.append(str(df.dtypes))
 
-        output.append("\n\n--- Summary Statistics ---")
+        output.append("\n--- Summary Statistics ---")
         output.append(str(df.describe(include='all')))
 
-        output.append("\n\n--- Missing Values ---")
+        output.append("\n--- Missing Values ---")
         missing = df.isnull().sum()
         if missing.sum() > 0:
             output.append(str(missing[missing > 0]))
@@ -72,7 +72,6 @@ def write_code(task: str, meta_info: str | None = None, file_path: str | None = 
         - write code that reads the performs the task, possibly using the necessary resources (given file)
         - uses python standard libraries and/or may use common packages
           think pandas, numpy, matplotlib, nltk, beautifulsoup4.
-        -
 
     Args:
         task (str): Description of the task to complete.

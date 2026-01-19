@@ -8,7 +8,7 @@ from ..tools.summarisers import construct_short_answer
 from ..tools.text_processing import process_text
 from ..tools.web_search import web_search 
 from ..tools.data_model import ContentResource, ShortAnswer
-from ..tools.code import write_python_eda, run_code, write_python_task
+from ..tools.code import do_table_eda, write_code, execute_code
 from ..tools.media import download_audio
 from ..tools.media import transcribe_mp3
 from ..utils import current_function
