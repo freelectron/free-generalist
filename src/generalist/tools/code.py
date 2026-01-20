@@ -41,16 +41,32 @@ def do_table_eda(file_path: str) -> str:
 
         output.append(f"Shape: {df.shape[0]} rows x {df.shape[1]} columns\n")
 
-        output.append("\n--- Column Information ---")
+        output.append("--- Column Information ---")
         output.append(f"Columns: {list(df.columns)}\n")
 
-        output.append("\n--- Data Types ---")
+        output.append("--- Data Types ---")
         output.append(str(df.dtypes))
 
-        output.append("\n--- Summary Statistics ---")
-        output.append(str(df.describe(include='all')))
+        output.append("--- Summary Statistics ---")
+        nans = df.isna().sum()
+        counts = df.count()
+        for col in df.columns:
+            ser = df[col]
+            nans_v = int(nans[col])
+            count_v = int(counts[col])
+            uniques = list(ser.dropna().unique()[:10])
+            mean_v = ser.mean() if pd.api.types.is_numeric_dtype(ser) else None
+            try:
+                min_v = ser.min()
+                max_v = ser.max()
+            except Exception:
+                min_v = None
+                max_v = None
+            output.append(f"Column: {col}")
+            output.append(f"  nans: {nans_v} | count: {count_v} | unique (first 10): {uniques}")
+            output.append(f"  mean: {mean_v} | min: {min_v} | max: {max_v}")
 
-        output.append("\n--- Missing Values ---")
+        output.append("--- Missing Values ---")
         missing = df.isnull().sum()
         if missing.sum() > 0:
             output.append(str(missing[missing > 0]))
@@ -101,7 +117,7 @@ Return ONLY the Python code, without any additional explanation or markdown form
     try:
         response = llm.complete(prompt)
 
-        code = response.strip()
+        code = response.text.strip()
         if code.startswith("```python"):
             code = code[9:]
         if code.startswith("```"):
@@ -130,9 +146,11 @@ def execute_code(file_path: str) -> str:
     from pathlib import Path
 
     if not Path(file_path).exists():
+        logger.error(f"File is not found: {file_path}")
         return f"Error: File not found: {file_path}"
 
     if not file_path.endswith('.py'):
+        logger.error(f"File must be a Python file (.py): {file_path}")
         return f"Error: File must be a Python file (.py): {file_path}"
 
     try:

@@ -18,6 +18,9 @@ class AgentState(TypedDict):
     step: int
 
 
+# def decorate_tool(func: Callable):
+
+
 class AgentWorkflow:
     """Configurable workflow builder for agents.
 
@@ -53,6 +56,7 @@ class AgentWorkflow:
         workflow.add_node("determine_action", self.determine_action_func)
         workflow.add_node("tools", ToolNode(self.tools))
 
+        # The graph terminates when determine_action does not route to tools. tools_condition controls the branching
         workflow.add_edge(START, "determine_action")
         workflow.add_conditional_edges("determine_action", tools_condition)
         workflow.add_edge("tools", "determine_action")
