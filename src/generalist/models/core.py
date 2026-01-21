@@ -42,7 +42,7 @@ class MLFlowLLMWrapper:
             
             return response
 
-    def predict_and_call(self, prompt, tools,**kwargs):
+    def predict_and_call(self, user_msg, tools, **kwargs):
         import inspect
         # Get caller function name and module
         caller_frame = inspect.currentframe().f_back
@@ -53,13 +53,13 @@ class MLFlowLLMWrapper:
             mlflow.log_param("caller", f"{caller_module}.{caller_function}")
             mlflow.log_param("llm_name", self.llm.model)
 
-            response = self.llm.predict_and_call(user_msg=prompt, tools=tools, **kwargs)
+            response = self.llm.predict_and_call(user_msg=user_msg, tools=tools, **kwargs)
 
-            mlflow.log_metric("prompt_length", len(prompt))
+            mlflow.log_metric("prompt_length", len(user_msg))
             # response is of type llama_index.core.chat_engine.types.AgentChatResponse
             mlflow.log_metric("response_length", len(response.response))
 
-            mlflow.log_text(prompt, f"prompt_{caller_function}.txt")
+            mlflow.log_text(user_msg, f"prompt_{caller_function}.txt")
             mlflow.log_text(response.response, f"response_{caller_function}.txt")
 
             return response

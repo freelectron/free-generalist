@@ -1,8 +1,21 @@
-from typing import Callable, Any
+from dataclasses import dataclass
+from typing import Callable, Any, Literal, Union
+
+from llama_index.core.llms.function_calling import FunctionCallingLLM
+from llama_index.core.tools import FunctionTool
 from typing_extensions import TypedDict
 from langgraph.graph import StateGraph, START
 from langgraph.graph.state import CompiledStateGraph
-from langgraph.prebuilt import ToolNode, tools_condition
+
+from generalist.tools import OUTPUT_TYPE, ToolOutputType, get_tool_type
+from generalist.tools.data_model import ContentResource
+
+
+@dataclass
+class ExecuteToolOutput:
+    name: str
+    type: ToolOutputType
+    output: str
 
 
 class AgentState(TypedDict):
@@ -14,11 +27,9 @@ class AgentState(TypedDict):
         step: Count of how many cycles (LLM + tool call) have been performed
     """
     task: str
-    context: str
+    context: list[ContentResource]
     step: int
-
-
-# def decorate_tool(func: Callable):
+    last_output: ExecuteToolOutput
 
 
 class AgentWorkflow:
@@ -30,37 +41,56 @@ class AgentWorkflow:
 
     def __init__(
         self,
+        system_prompt: str,
+        llm: FunctionCallingLLM,
         tools: list[Any],
-        determine_action: Callable[[AgentState], AgentState],
-        context: str,
+        context: list[ContentResource],
         task: str,
     ):
         """Initialize the workflow builder.
 
         Args:
-            tools: List of tools that the agent can use
-            determine_action: Function that takes AgentState and returns
-                             a dict with the LLM response and any state updates
+            system_prompt (str): describe what this agent is to do and responsible for
+            llm (FunctionCallingLLM): the brain
+            tools (list): tools that the agent can use
             task (str): task that needs to be performed
             context (str): summary of what has been achieved in the previous steps
         """
+        self.llm = llm
+        self.agent_prompt = system_prompt
         self.state = AgentState(step=0, task=task, context=context)
-        self.tools: list[Callable[[Any], Any]] = tools
-        self.determine_action_func: Callable[[AgentState], AgentState] = determine_action
+        self.tools: list[FunctionTool] = tools
         self.graph: CompiledStateGraph | None = None
+
+    def execute_tool(self, state: AgentState):
+        """
+        """
+        prompt = f"""
+        Role: {self.agent_prompt}
+        
+        Task: {state["task"]}
+        
+        Context: {state["context"]}
+        """
+
+        response = self.llm.predict_and_call(user_msg=prompt, tools=self.tools)
+
+        # what has been called
+        tool_name = response.sources[0].tool_name
+
+        state["last_output"] = ExecuteToolOutput(name=tool_name, type=get_tool_type(tool_name), output=response.response)
+
+    def process_tool_call_output(self, state: AgentState):
+        """
+        """
 
     def build_compile(self):
         """Builds and compiles the workflow graph."""
         workflow = StateGraph(state_schema=AgentState)
 
-        workflow.add_node("determine_action", self.determine_action_func)
-        workflow.add_node("tools", ToolNode(self.tools))
+        # you are given a task, determine what tool to call and call it
+        workflow.add_node("execute_tool", self.execute_tool)
 
-        # The graph terminates when determine_action does not route to tools. tools_condition controls the branching
-        workflow.add_edge(START, "determine_action")
-        workflow.add_conditional_edges("determine_action", tools_condition)
-        workflow.add_edge("tools", "determine_action")
-        
         self.graph = workflow.compile()
 
     def run(self):

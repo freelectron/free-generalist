@@ -37,12 +37,12 @@ def do_table_eda(file_path: str) -> str:
             return f"Unsupported file format: {file_ext}. Supported formats: csv, xlsx, xls, parquet"
 
         output = []
-        output.append(f"=== Exploratory Data Analysis for {Path(file_path).name} ===\n")
+        output.append(f"=== Exploratory Data Analysis for {Path(file_path).name} ===")
 
-        output.append(f"Shape: {df.shape[0]} rows x {df.shape[1]} columns\n")
+        output.append(f"Shape: {df.shape[0]} rows x {df.shape[1]} columns")
 
         output.append("--- Column Information ---")
-        output.append(f"Columns: {list(df.columns)}\n")
+        output.append(f"Columns: {list(df.columns)}")
 
         output.append("--- Data Types ---")
         output.append(str(df.dtypes))
@@ -54,7 +54,6 @@ def do_table_eda(file_path: str) -> str:
             ser = df[col]
             nans_v = int(nans[col])
             count_v = int(counts[col])
-            uniques = list(ser.dropna().unique()[:10])
             mean_v = ser.mean() if pd.api.types.is_numeric_dtype(ser) else None
             try:
                 min_v = ser.min()
@@ -63,7 +62,7 @@ def do_table_eda(file_path: str) -> str:
                 min_v = None
                 max_v = None
             output.append(f"Column: {col}")
-            output.append(f"  nans: {nans_v} | count: {count_v} | unique (first 10): {uniques}")
+            output.append(f"  nans: {nans_v} | count: {count_v}")
             output.append(f"  mean: {mean_v} | min: {min_v} | max: {max_v}")
 
         output.append("--- Missing Values ---")
@@ -79,32 +78,30 @@ def do_table_eda(file_path: str) -> str:
         logger.error(f"Error performing EDA on {file_path}: {str(e)}")
         return f"Error performing EDA: {str(e)}"
 
-def write_code(task: str, meta_info: str | None = None, file_path: str | None = None) -> str:
+def write_code(task: str, context: str | None = None, file_path: str | None = None) -> str:
     """
     This tool writes code that accomplishes a task given some file resource.
 
-    It receives the description of the task, some meta-information about possible files it needs to use and
-    a filepath to that resource. It then generates that code that:
-        - write code that reads the performs the task, possibly using the necessary resources (given file)
-        - uses python standard libraries and/or may use common packages
-          think pandas, numpy, matplotlib, nltk, beautifulsoup4.
+    It receives the description of the task, context as the previous relevant tool calls outputs and a filepath to work with.
+    Then, it generates code that:
+        - performs the task, using the necessary resources (the given file path) and the occurred contex (e.g., previous errors while executing, Exploratory Analysis, other tool calls)
+        - uses python standard libraries and/or may use common packages (e.g., pandas, numpy, matplotlib, nltk, beautifulsoup4)
 
     Args:
         task (str): Description of the task to complete.
-        meta_info (str): Meta-information describing files or resources needed to accomplish the task
-        file_path (str): filepath to the file relevant for the task
+        context (str): all the previous errors while executing, exploratory analysis on relevant file, other tool calls outputs
+        file_path (str): File path to the file relevant for the task.
 
     Returns:
         str: Generated Python code.
     """
-    prompt = f"""You are a Python programmer. Generate clean, executable Python code to accomplish the following task.
+    prompt = f"""Generate clean, executable Python code to accomplish the following task.
 
 Task: {task}
 
-Meta-information about resources:
-{meta_info}
+Context: {context}
 
-File path to use: {file_path if file_path else "None"}
+File: {file_path if file_path else "None"}
 
 Requirements:
 - Generate complete, executable Python code
