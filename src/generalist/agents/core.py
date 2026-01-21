@@ -4,11 +4,13 @@ from typing import Optional, Type, Tuple
 from dataclasses import dataclass, field
 
 from browser.search.web import BraveBrowser
+from .agent_workflow import AgentWorkflow
+from ..models.core import llm
+from ..tools import eda_table_tool, write_code_tool, execute_code_tool, task_completed_tool
 from ..tools.summarisers import construct_short_answer
 from ..tools.text_processing import process_text
 from ..tools.web_search import web_search 
 from ..tools.data_model import ContentResource, ShortAnswer
-from ..tools.code import do_table_eda, write_code, execute_code
 from ..tools.media import download_audio
 from ..tools.media import transcribe_mp3
 from ..utils import current_function
@@ -157,18 +159,18 @@ class AgentCodeWriterExecutor(BaseAgent):
     name = "code_writing_execution"
 
     def run(self, resources:list[ContentResource]) -> AgentOutput:
-        # Analyse the given resources, determine what the files contain (EDA)
-        eda_code = do_eda_table(resources=resources)
-        logger.info(f"- {AgentCodeWriterExecutor.name} -- EDA code to be executed:\n{eda_code}")
-        eda_result = run_code(eda_code)
-        logger.info(f"- {AgentCodeWriterExecutor.name} -- EDA code result:\n{eda_result}")
+        agent_workflow = AgentWorkflow(
+            name=self.name,
+            system_prompt="You are an agent that can write and execute code.",
+            llm=llm,
+            tools=[eda_table_tool, write_code_tool, execute_code_tool, task_completed_tool],
+            context=resources,
+            task=self.activity,
+        )
+        final_state = agent_workflow.run()
+        logger.info(f" After running the agent workflow :\n{final_state}")
 
-        task_code = write_python_task(task=self.activity, eda_results=eda_result, resources=resources)
-        logger.info(f"- {AgentCodeWriterExecutor.name} -- Final code to be executed:\n{task_code}")
-        result = run_code(task_code)
-        logger.info(f"- {AgentCodeWriterExecutor.name} -- Final code result:\n{result}")
-
-        short_answers = [construct_short_answer(self.activity, result)]
+        short_answers = [construct_short_answer(self.activity, final_state)]
 
         return AgentOutput(
             task=self.activity,

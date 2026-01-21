@@ -1,14 +1,22 @@
+import tempfile
 from dataclasses import dataclass
-from typing import Callable, Any, Literal, Union
+from typing import Any
 
+import mlflow
 from llama_index.core.llms.function_calling import FunctionCallingLLM
 from llama_index.core.tools import FunctionTool
+from numba.core.event import start_event
 from typing_extensions import TypedDict
-from langgraph.graph import StateGraph, START
+from langgraph.graph import StateGraph, START, END
 from langgraph.graph.state import CompiledStateGraph
 
-from generalist.tools import OUTPUT_TYPE, ToolOutputType, get_tool_type
+from generalist.tools import ToolOutputType, get_tool_type, task_completed_tool
 from generalist.tools.data_model import ContentResource
+from clog import get_logger
+from generalist.tools.summarisers import construct_task_completion
+
+MAX_STEPS = 5
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -29,7 +37,7 @@ class AgentState(TypedDict):
     task: str
     context: list[ContentResource]
     step: int
-    last_output: ExecuteToolOutput
+    last_output: ExecuteToolOutput | None
 
 
 class AgentWorkflow:
@@ -41,21 +49,25 @@ class AgentWorkflow:
 
     def __init__(
         self,
+        name: str,
         system_prompt: str,
         llm: FunctionCallingLLM,
         tools: list[Any],
         context: list[ContentResource],
         task: str,
     ):
-        """Initialize the workflow builder.
+        """
+        Initialize the workflow builder.
 
         Args:
+            name (str): agent name
             system_prompt (str): describe what this agent is to do and responsible for
             llm (FunctionCallingLLM): the brain
             tools (list): tools that the agent can use
             task (str): task that needs to be performed
-            context (str): summary of what has been achieved in the previous steps
+            context (list[ContentResource]): summary of what has been achieved in the previous steps
         """
+        self.agent_name = name
         self.llm = llm
         self.agent_prompt = system_prompt
         self.state = AgentState(step=0, task=task, context=context)
@@ -75,14 +87,53 @@ class AgentWorkflow:
 
         response = self.llm.predict_and_call(user_msg=prompt, tools=self.tools)
 
-        # what has been called
+        # tool that has just been called
         tool_name = response.sources[0].tool_name
 
         state["last_output"] = ExecuteToolOutput(name=tool_name, type=get_tool_type(tool_name), output=response.response)
+        state["step"] += 1
 
-    def process_tool_call_output(self, state: AgentState):
+        return state
+
+    def process_tool_output(self, state: AgentState):
         """
         """
+        link = ""
+        content = state["last_output"].output
+        if state["last_output"].type == ToolOutputType.FILE:
+            # write the output to a tempfile
+            fp = tempfile.NamedTemporaryFile(delete_on_close=False)
+            fp.write(state["last_output"].output); fp.close()
+            content = f"Output of the this call is stored in {fp.name}"
+            link = fp.name
+
+        state["context"].append(
+            ContentResource(
+                provided_by=state["last_output"].name,
+                link=link,
+                content=content,
+                metadata={},
+            )
+        )
+
+        return state
+
+    def evaluate_completion(self, state: AgentState):
+        """
+        """
+        decision = construct_task_completion(state["task"], str(state["context"]))
+        # Early stopping if answer exists
+        if decision.completed:
+            return "end"
+
+        # Early stopping if maximum number of steps reached
+        if state['step'] >= MAX_STEPS:
+            return "end"
+
+        # if state["last_output"].name == task_completed_tool.metadata.name:
+        #     return  "end"
+
+        return "continue"
 
     def build_compile(self):
         """Builds and compiles the workflow graph."""
@@ -90,6 +141,18 @@ class AgentWorkflow:
 
         # you are given a task, determine what tool to call and call it
         workflow.add_node("execute_tool", self.execute_tool)
+        workflow.add_node("process_tool_output", self.process_tool_output)
+
+        workflow.add_edge(START, "execute_tool")
+        workflow.add_edge( "execute_tool", "process_tool_output")
+        workflow.add_conditional_edges(
+            "process_tool_output",
+            self.evaluate_completion,
+            {
+                "continue": "execute_tool",
+                "end": END,
+            }
+        )
 
         self.graph = workflow.compile()
 
@@ -102,4 +165,11 @@ class AgentWorkflow:
         if self.graph is None:
             self.build_compile()
 
-        return self.graph.invoke(self.state)
+        mlflow.langchain.autolog()
+        experiment_name = f"{self.agent_name}"
+        mlflow.set_experiment(experiment_name)
+        mlflow.models.set_model(self.graph)
+
+        final_state = self.graph.invoke(self.state)
+
+        return str(final_state)

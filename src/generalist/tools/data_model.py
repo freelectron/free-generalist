@@ -42,3 +42,9 @@ class ShortAnswer:
     answered: bool
     answer: str = "not found"
     clarification: str = "No information processed yet."
+
+
+@dataclass
+class AgentRunSummary:
+    completed: bool
+    summary: str

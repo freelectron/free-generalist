@@ -1,7 +1,7 @@
 import json
 import regex as re
 
-from .data_model import ShortAnswer
+from .data_model import ShortAnswer, AgentRunSummary
 from ..models.core import llm
 from ..utils import current_function
 from clog import get_logger
@@ -27,7 +27,7 @@ def construct_short_answer(task: str, context: str) -> ShortAnswer:
         A ShortAnswer dataclass instance containing the answer and clarification.
     """
     prompt = f"""
-    You are presented with a list of expert information from oen or several sources that you need to summarize.
+    You are presented with a list of information from one or several sources that you need to summarize.
 
     RESOURCES:
     {context}
@@ -93,3 +93,84 @@ def construct_short_answer(task: str, context: str) -> ShortAnswer:
             answer=data.get("answer", "did-not-parse"),
             clarification=data.get("clarification", "did-not-parse.")
         )
+
+
+def construct_task_completion(task: str, context: str) -> AgentRunSummary:
+    """Evaluates whether a task has been accomplished based on provided context.
+
+    The task does not require a final answer. It is considered completed
+    if the main steps or intent appear to be fulfilled based solely on
+    the given resources.
+    """
+
+    prompt = f"""
+    You are presented with a list of information describing work, actions,
+    or outcomes related to a task.
+
+    RESOURCES:
+    {context}
+
+    Based **ONLY** on the resources above and without any additional assumptions,
+    determine whether the task has been accomplished. A concrete answer
+    is not required as long as the main steps or intent are completed.
+
+    TASK:
+    {task}
+
+    Your response MUST be valid JSON in the following format:
+    {{
+        "completed": <write only "true" or "false">,
+        "summary": "<a short phrase describing what was achieved, or 'not completed'>"
+    }}
+    
+    Example:
+     Task: Calculate what the average prices was at the end of the day for the following file trades.csv.  
+     Resources:
+        [
+            ContentResource(
+                provided_by="eda_tool"), 
+                content="Identified columns = [close, open, highest, lowest, date], average_close = 2102",
+                link="freelectron/trades.csv",
+                metainfo={{}}, 
+            ), 
+            ContentResource(
+                provided_by="write_code"), 
+                content="import pandas as pd; # read file ... ",
+                link="",
+                metainfo={{}}, 
+            ), 
+        ]
+     Output:
+        {{
+            "completed": "false",
+            "summary": "the code to complete the task is written but it is not executed."
+        }}
+
+    Rules:
+        - If the main steps or intent of the task are clearly completed → "completed": true
+        - If the task appears partially done but core objectives are met → "completed": true
+        - If key steps are missing or the task intent is not fulfilled → "completed": false
+    """
+
+    llm_response = llm.complete(prompt)
+    response_text = llm_response.text.strip()
+
+    json_match = re.search(r"```json\n(.*?)```", response_text, re.DOTALL)
+    code_string = json_match.group(1) if json_match else ""
+    if len(code_string) > 1:
+        response_text = code_string
+
+    logger.info(f"- {current_function()} -- Task completion:\n{response_text}.")
+
+    data = json.loads(response_text)
+
+    return AgentRunSummary(
+        completed=True if data.get("completed") in ["True", "true", "yes", "1"] else False,
+        summary=data.get("summary", "did-not-parse"),
+    )
+
+def task_completed():
+    """
+    This tool signals that the task has been completed.
+    """
+    return "end"

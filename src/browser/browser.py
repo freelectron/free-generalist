@@ -10,12 +10,6 @@ from clog import get_logger
 
 class ChromeBrowser:
     waiter_default_timeout = 10
-    chrome_user_data_dir = os.getenv(
-        "CHROME_USER_DATA_DIR", "./browser_cache"
-    )
-    default_profile_directory_name = os.getenv(
-        "CHROME_PROFILE", "Default"
-    )
     # Mapping from tabs tittle to their window handles
     opened_tabs: Dict[str, Any] = {}
 
@@ -36,8 +30,11 @@ class ChromeBrowser:
     def __init__(self, profile: Optional[str] = None):
         self.logger = get_logger(name=self.__class__.__name__)
 
+        self.chrome_user_data_dir = os.getenv("CHROME_USER_DATA_DIR", "./browser_cache")
+        default_profile_directory_name = os.getenv("CHROME_PROFILE", "Default")
+
         self.options = self.get_default_options()
-        self.profile = profile if profile else self.default_profile_directory_name
+        self.profile = profile if profile else default_profile_directory_name
         self.driver = uc.Chrome(
             options=self.options,
             user_data_dir=os.path.join(self.chrome_user_data_dir, self.profile),

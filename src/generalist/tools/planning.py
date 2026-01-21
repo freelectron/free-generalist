@@ -11,7 +11,7 @@ from ..utils import current_function
 logger = get_logger(__name__)
 
 
-def create_plan(task: str, resources: list[ContentResource]) -> str:
+def create_plan(task: str, resources: str) -> str:
     """
     Create a concise, JSON-formatted action plan for the given task using the LLM.
 
@@ -37,7 +37,7 @@ def create_plan(task: str, resources: list[ContentResource]) -> str:
 
     Args:
         task (str): Human-readable description of the user's goal or request.
-        resources (list[ContentResource]): A list of available resources (files, links,
+        resources (list[str]): A list of available resources (files, links,
             or in-memory contents). Elements should be representable in the prompt.
 
     Returns:
@@ -116,7 +116,7 @@ where
     return task_response.text
 
 
-def determine_capabilities(task: Task, context: str = "") -> AgentPlan:
+def determine_capabilities(task: Task, context: str = "") -> dict:
     """
     Analyzes a task and automatically determines which step from the plan should be executed next
     based on the context, then selects the single most appropriate capability for that step.
