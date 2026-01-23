@@ -1,15 +1,13 @@
 import os
 import re
-from typing import Optional, Type, Tuple
-from dataclasses import dataclass, field
+from typing import Optional, Tuple
+from dataclasses import dataclass
 
-from browser.search.web import BraveBrowser
 from .agent_workflow import AgentWorkflow
 from ..models.core import llm
 from ..tools import eda_table_tool, write_code_tool, execute_code_tool, task_completed_tool, web_search_tool
 from ..tools.summarisers import construct_short_answer
 from ..tools.text_processing import process_text
-from ..tools.web_search import web_search 
 from ..tools.data_model import ContentResource, ShortAnswer
 from ..tools.media import download_audio
 from ..tools.media import transcribe_mp3

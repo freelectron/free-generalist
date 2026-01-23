@@ -12,6 +12,7 @@ from ..tools.data_model import ContentResource, WebSearchResult
 from ..models.core import llm
 from clog import get_logger
 
+
 NOT_FOUND_LITERAL = "N/A"
 logger = get_logger(__name__)
 

@@ -3,7 +3,6 @@ import json
 from ..agents.core import AgentAudioProcessor, AgentCodeWriterExecutor, AgentDeepWebSearch, AgentUnstructuredDataProcessor, AgentPlan
 from .data_model import Task
 from ..models.core import llm
-from ..tools.data_model import ContentResource
 from clog import get_logger
 
 

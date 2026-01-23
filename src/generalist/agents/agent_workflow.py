@@ -9,7 +9,7 @@ from typing_extensions import TypedDict
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.state import CompiledStateGraph
 
-from generalist.tools import ToolOutputType, get_tool_type, task_completed_tool
+from generalist.tools import ToolOutputType, get_tool_type
 from generalist.tools.data_model import ContentResource
 from clog import get_logger
 from generalist.tools.summarisers import construct_task_completion
