@@ -5,13 +5,12 @@ from .data_model import Task
 from ..models.core import llm
 from ..tools.data_model import ContentResource
 from clog import get_logger
-from ..utils import current_function
 
 
 logger = get_logger(__name__)
 
 
-def create_plan(task: str, resources: str) -> str:
+def create_plan(task: str) -> str:
     """
     Create a concise, JSON-formatted action plan for the given task using the LLM.
 
@@ -31,14 +30,9 @@ def create_plan(task: str, resources: str) -> str:
         `text` attribute of the LLM response. It does not parse or validate the JSON.
       - The caller is responsible for parsing, validating, and handling any deviations or
         errors in the model output.
-      - The `resources` argument is interpolated directly into the prompt and should be
-        concise and serializable (e.g., a list of `ContentResource` objects or their
-        string representations).
 
     Args:
         task (str): Human-readable description of the user's goal or request.
-        resources (list[str]): A list of available resources (files, links,
-            or in-memory contents). Elements should be representable in the prompt.
 
     Returns:
         str: The raw text produced by the LLM (expected to be a plain JSON string). This
@@ -57,15 +51,11 @@ You are an expert project planner. Your task is to create a concise, step-by-ste
 
 USER'S GOAL:
 {task}
----
-AVAILABLE RESOURCES:
-{resources}
----
 
 Instructions:
 1. Clarify the Core Objective: Start by rephrasing the user's goal as a single, clear, and specific objective.
-2. **OPTIONAL** Extract Resources: Identify any URLs or URIs mentioned in "User's Goal" and NOT ALREADY MENTIONED 
-    in the of list of available resource. If available resources DO NOT already include links or files mentioned in the user's task, 
+2. **OPTIONAL** Extract Resources: Identify any URLs or URIs mentioned in USER'S GOAL AND NOT ALREADY MENTIONED 
+    in AVAILABLE RESOURCES. If available resources DO NOT already include links or files mentioned in the user's task, 
     provide a short description (content) and the link for the resource.
 3. Identify what information and steps are still missing to achieve the goal, i.e., answer the question.  
 4. Develop a Chronological Action Plan: Break down the objective into a logical sequence of high-level steps (aim for 1, 2 or 3 steps).
@@ -194,7 +184,7 @@ ONLY RESPOND WITH A SINGLE JSON, in this exact JSON format:
 """
     response = llm.complete(planning_prompt)
     response_text = response.text.strip()
-    logger.info(f"- {current_function()} -- Raw output: {response_text}")
+    logger.info(f"Raw output: {response_text}")
     escaped_response_text = response_text.translate(str.maketrans({"\\":  r"\\"}))
 
     return json.loads(escaped_response_text)

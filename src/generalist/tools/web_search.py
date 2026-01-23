@@ -6,13 +6,13 @@ from bs4 import BeautifulSoup
 import httpx
 from ddgs import DDGS
 
+from browser import ChromeBrowser, BRAVE_SEARCH_SESSION
 from browser.search.web import BraveBrowser
-from ..tools import NOT_FOUND_LITERAL
 from ..tools.data_model import ContentResource, WebSearchResult
 from ..models.core import llm
 from clog import get_logger
 
-
+NOT_FOUND_LITERAL = "N/A"
 logger = get_logger(__name__)
 
 
@@ -242,7 +242,7 @@ def _download_content(resource: WebSearchResult) -> str:
 
     return _extract_clean_text(html_content)
 
-def web_search(question: str, brave_search_session: Optional[BraveBrowser] = None, **kwargs) -> list[dict[str, str|WebSearchResult]]:
+def web_search(question: str, **kwargs) -> list[dict[str, str|WebSearchResult]]:
     """Orchestrates the full web search process for a given question.
 
     This process includes:
@@ -252,11 +252,11 @@ def web_search(question: str, brave_search_session: Optional[BraveBrowser] = Non
 
     Args:
         question: The user's question.
-        brave_search_session: selenium browser search with Brave
 
     Returns:
-        A list of WebResource objects, with their 'content' field populated.
+        A list of WebResource objects, with their 'content' field populated with the content of webpage.
     """
+
     #  number of queries to generate per question
     queries_per_question = kwargs.get("queries_per_question", 1)
     #  number of web links to retrieve for each search query.
@@ -267,7 +267,7 @@ def web_search(question: str, brave_search_session: Optional[BraveBrowser] = Non
 
     all_sources = []
     for query in candidate_queries:
-        search_results_for_query = _brave_search(query, links_per_query, brave_search_session)
+        search_results_for_query = _brave_search(query, links_per_query, BRAVE_SEARCH_SESSION)
         all_sources.extend(search_results_for_query)
 
     unique_search_results = _drop_non_unique_link(all_sources)

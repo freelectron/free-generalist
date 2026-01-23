@@ -6,11 +6,6 @@ REQUEST_TIMEOUT = 180
 MODEL_NAME = "qwen2.5:14b"
 
 
-llm = Ollama(
-    model=MODEL_NAME, 
-    request_timeout=REQUEST_TIMEOUT
-)
-
 # Note: only needed to get traces and logs
 class MLFlowLLMWrapper:
     """
@@ -65,3 +60,9 @@ class MLFlowLLMWrapper:
             return response
 
 
+llm = MLFlowLLMWrapper(
+    Ollama(
+        model=MODEL_NAME,
+        request_timeout=REQUEST_TIMEOUT
+    )
+)

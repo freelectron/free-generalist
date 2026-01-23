@@ -6,14 +6,13 @@ from dataclasses import dataclass, field
 from browser.search.web import BraveBrowser
 from .agent_workflow import AgentWorkflow
 from ..models.core import llm
-from ..tools import eda_table_tool, write_code_tool, execute_code_tool, task_completed_tool
+from ..tools import eda_table_tool, write_code_tool, execute_code_tool, task_completed_tool, web_search_tool
 from ..tools.summarisers import construct_short_answer
 from ..tools.text_processing import process_text
 from ..tools.web_search import web_search 
 from ..tools.data_model import ContentResource, ShortAnswer
 from ..tools.media import download_audio
 from ..tools.media import transcribe_mp3
-from ..utils import current_function
 from clog import get_logger
 
 
@@ -61,37 +60,39 @@ class AgentDeepWebSearch(BaseAgent):
     """Capability for performing a deep web search."""
     name = "deep_web_search"
 
-    def __init__(self, activity: str, search_browser: Optional[BraveBrowser] = None):
+    def __init__(self, activity: str):
         super().__init__(activity=activity)
-        self.search_browser = search_browser
         self.queries_per_question: int = 1
         self.links_per_query: int = 1
 
     def run(self) -> AgentOutput:
-        search_results = web_search(
-            self.activity,
-            brave_search_session=self.search_browser
+        agent_workflow = AgentWorkflow(
+            name=self.name,
+            system_prompt="You are an agent that finds information online.",
+            llm=llm,
+            tools=[web_search_tool],
+            context=[],
+            task=self.activity,
         )
-        resources = []
-        for search_result in search_results:
-            content = search_result["content"]
-            search_result = search_result["search_result"]
-            resource = ContentResource(
-                provided_by=self.name,
-                content=content,
-                link=search_result.link,
-                metadata=search_result.metadata,
-            )
-            resources.append(resource)
 
-        links = [r.link for r in resources]
-        context = f"Downloaded content for: {links}, see resources that are passed to the next task. You should proceed to text processing!"
-        answer = [ShortAnswer(answered=True, answer=str(links), clarification=context)]
+        final_state = agent_workflow.run()
+        logger.info(f" After running {AgentDeepWebSearch.name}, the final state is:\n{final_state}")
+
+        # last output will be a content resource with the downloaded search results
+        last_resource = final_state["context"][-1]
+        resource = ContentResource(
+            provided_by=self.name,
+            content=last_resource.content,
+            link=last_resource.link,
+            metadata=last_resource.metadata,
+        )
+        clarification = f"Downloaded webpages see {str(resource)}"
+        answer = [ShortAnswer(answered=True, answer=str(resource.link), clarification=clarification)]
 
         return AgentOutput(
             task=self.activity,
             answers=answer,
-            resources=resources,
+            resources=[resource],
         )
 
 
@@ -109,7 +110,7 @@ class AgentAudioProcessor(BaseAgent):
         cleaned_link = re.sub(r'[^A-Za-z0-9]', '', resource.link[-20])
         file_path_no_extension = os.path.join(temp_folder, "audio_processor", cleaned_link)
         file_path, meta = download_audio(file_path_no_extension, resource.link)
-        logger.info(f"- {current_function()} -- Downloaded file to {file_path} with meta info {meta}.")
+        logger.info(f"Downloaded file to {file_path} with meta info {meta}.")
 
         # transcribes the file and returns just the text
         result = transcribe_mp3(file_path)
@@ -133,12 +134,17 @@ class AgentUnstructuredDataProcessor(BaseAgent):
 
     def run(self, resources: list[ContentResource]) -> AgentOutput:
         """
-        Args:
-        ask (str): what data we are analysing 
         """
-        resource_contents = [resource.content for resource in resources]
+        resource_contents = []
+        for resource in resources:
+            # if local link, load the contents
+            content = resource.content
+            if not resource.link.startswith("http") or resource.link.startswith("www"):
+                with open(resource.link, "rt") as f:
+                    content = f.read()
+            resource_contents.append(content)
 
-        # Join contents all together to give to a chunk splitter  
+        # Join contents all together to give to a chunk splitter
         text  = "\n".join(resource_contents)
         answers = process_text(self.activity, text)
 

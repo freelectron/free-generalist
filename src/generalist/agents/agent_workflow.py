@@ -5,7 +5,6 @@ from typing import Any
 import mlflow
 from llama_index.core.llms.function_calling import FunctionCallingLLM
 from llama_index.core.tools import FunctionTool
-from numba.core.event import start_event
 from typing_extensions import TypedDict
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.state import CompiledStateGraph
@@ -14,6 +13,7 @@ from generalist.tools import ToolOutputType, get_tool_type, task_completed_tool
 from generalist.tools.data_model import ContentResource
 from clog import get_logger
 from generalist.tools.summarisers import construct_task_completion
+
 
 MAX_STEPS = 5
 logger = get_logger(__name__)
@@ -82,7 +82,7 @@ class AgentWorkflow:
         
         Task: {state["task"]}
         
-        Context: {state["context"]}
+        Context from the previous steps: {state["context"]}
         """
 
         response = self.llm.predict_and_call(user_msg=prompt, tools=self.tools)
@@ -100,11 +100,13 @@ class AgentWorkflow:
         """
         link = ""
         content = state["last_output"].output
+        # Note: this is an attempt to keep the context for an agent small
         if state["last_output"].type == ToolOutputType.FILE:
             # write the output to a tempfile
-            fp = tempfile.NamedTemporaryFile(delete_on_close=False)
+            fp = tempfile.NamedTemporaryFile(delete_on_close=False, mode="w", encoding="utf-8")
             fp.write(state["last_output"].output); fp.close()
-            content = f"Output of the this call is stored in {fp.name}"
+            logger.info(f"Wrote {state["last_output"].name} to a file {fp.name}.Output:\n{state["last_output"].output}")
+            content = f"Output of {state["last_output"].name} tool is stored in {fp.name}. You might want to either read it or execute (python) it."
             link = fp.name
 
         state["context"].append(
@@ -130,9 +132,6 @@ class AgentWorkflow:
         if state['step'] >= MAX_STEPS:
             return "end"
 
-        # if state["last_output"].name == task_completed_tool.metadata.name:
-        #     return  "end"
-
         return "continue"
 
     def build_compile(self):
@@ -156,7 +155,7 @@ class AgentWorkflow:
 
         self.graph = workflow.compile()
 
-    def run(self):
+    def run(self) -> AgentState:
         """Convenience method to compile and run the workflow.
 
         Returns:
@@ -165,11 +164,7 @@ class AgentWorkflow:
         if self.graph is None:
             self.build_compile()
 
-        mlflow.langchain.autolog()
-        experiment_name = f"{self.agent_name}"
-        mlflow.set_experiment(experiment_name)
         mlflow.models.set_model(self.graph)
-
         final_state = self.graph.invoke(self.state)
 
-        return str(final_state)
+        return final_state

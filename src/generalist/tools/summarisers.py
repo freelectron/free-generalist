@@ -3,7 +3,6 @@ import regex as re
 
 from .data_model import ShortAnswer, AgentRunSummary
 from ..models.core import llm
-from ..utils import current_function
 from clog import get_logger
 
 
@@ -86,7 +85,7 @@ def construct_short_answer(task: str, context: str) -> ShortAnswer:
     if len(code_string) > 1: 
         response_text = code_string
 
-    logger.info(f"- {current_function()} -- Short answer:\n{response_text}.")
+    logger.info(f"Short answer:\n{response_text}.")
     data = json.loads(response_text)
     return ShortAnswer(
             answered=True if data.get("answered") in ["True", "true", "yes", "1"] else False,
@@ -160,7 +159,7 @@ def construct_task_completion(task: str, context: str) -> AgentRunSummary:
     if len(code_string) > 1:
         response_text = code_string
 
-    logger.info(f"- {current_function()} -- Task completion:\n{response_text}.")
+    logger.info(f"Task completion:\n{response_text}.")
 
     data = json.loads(response_text)
 
