@@ -6,7 +6,7 @@ from bs4 import BeautifulSoup
 import httpx
 from ddgs import DDGS
 
-from browser import ChromeBrowser, BRAVE_SEARCH_SESSION
+from browser import BRAVE_SEARCH_SESSION
 from browser.search.web import BraveBrowser
 from ..tools.data_model import ContentResource, WebSearchResult
 from ..models.core import llm
@@ -243,8 +243,9 @@ def _download_content(resource: WebSearchResult) -> str:
 
     return _extract_clean_text(html_content)
 
-def web_search(question: str, **kwargs) -> list[dict[str, str|WebSearchResult]]:
-    """Orchestrates the full web search process for a given question.
+def web_search(question: str) -> list[dict[str, str|WebSearchResult]]:
+    """
+    Orchestrates the full web search process for a given question.
 
     This process includes:
     1. Converting the question into search queries.
@@ -259,9 +260,9 @@ def web_search(question: str, **kwargs) -> list[dict[str, str|WebSearchResult]]:
     """
 
     #  number of queries to generate per question
-    queries_per_question = kwargs.get("queries_per_question", 1)
+    queries_per_question = 1
     #  number of web links to retrieve for each search query.
-    links_per_query = kwargs.get("links_per_query", 1)
+    links_per_query = 1
 
     candidate_queries = _question_to_queries(question, queries_per_question)
     logger.info(f"Generated queries: {candidate_queries}")

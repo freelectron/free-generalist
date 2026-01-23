@@ -41,18 +41,20 @@ class AgentState(TypedDict):
 
 
 class AgentWorkflow:
-    """Configurable workflow builder for agents.
+    """
+    Configurable workflow builder for agents.
 
     Creates a LangGraph workflow that can be customized with different tools
     and decision-making logic for different agent types.
     """
+    agent_prompt: str
+    tools: list[FunctionTool]
+    graph: CompiledStateGraph
 
     def __init__(
         self,
         name: str,
-        system_prompt: str,
         llm: FunctionCallingLLM,
-        tools: list[Any],
         context: list[ContentResource],
         task: str,
     ):
@@ -61,18 +63,13 @@ class AgentWorkflow:
 
         Args:
             name (str): agent name
-            system_prompt (str): describe what this agent is to do and responsible for
             llm (FunctionCallingLLM): the brain
-            tools (list): tools that the agent can use
             task (str): task that needs to be performed
             context (list[ContentResource]): summary of what has been achieved in the previous steps
         """
         self.agent_name = name
         self.llm = llm
-        self.agent_prompt = system_prompt
         self.state = AgentState(step=0, task=task, context=context)
-        self.tools: list[FunctionTool] = tools
-        self.graph: CompiledStateGraph | None = None
 
     def execute_tool(self, state: AgentState):
         """
@@ -106,7 +103,7 @@ class AgentWorkflow:
             fp = tempfile.NamedTemporaryFile(delete_on_close=False, mode="w", encoding="utf-8")
             fp.write(state["last_output"].output); fp.close()
             logger.info(f"Wrote {state["last_output"].name} to a file {fp.name}.Output:\n{state["last_output"].output}")
-            content = f"Output of {state["last_output"].name} tool is stored in {fp.name}. You might want to either read it or execute (python) it."
+            content = f"Output of {state["last_output"].name} tool is stored in {fp.name}."
             link = fp.name
 
         state["context"].append(

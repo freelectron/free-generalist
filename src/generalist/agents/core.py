@@ -3,9 +3,9 @@ import re
 from typing import Optional, Tuple
 from dataclasses import dataclass
 
-from .agent_workflow import AgentWorkflow
+from .workflows.workflow_code import CodeWriterExecutorWorkflow
+from .workflows.workflow_web_search import DeepWebSearchWorkflow
 from ..models.core import llm
-from ..tools import eda_table_tool, write_code_tool, execute_code_tool, task_completed_tool, web_search_tool
 from ..tools.summarisers import construct_short_answer
 from ..tools.text_processing import process_text
 from ..tools.data_model import ContentResource, ShortAnswer
@@ -64,11 +64,9 @@ class AgentDeepWebSearch(BaseAgent):
         self.links_per_query: int = 1
 
     def run(self) -> AgentOutput:
-        agent_workflow = AgentWorkflow(
+        agent_workflow = DeepWebSearchWorkflow(
             name=self.name,
-            system_prompt="You are an agent that finds information online.",
             llm=llm,
-            tools=[web_search_tool],
             context=[],
             task=self.activity,
         )
@@ -84,7 +82,7 @@ class AgentDeepWebSearch(BaseAgent):
             link=last_resource.link,
             metadata=last_resource.metadata,
         )
-        clarification = f"Downloaded webpages see {str(resource)}"
+        clarification = f"Downloaded webpages for the task: {self.activity}. See {str(resource)}"
         answer = [ShortAnswer(answered=True, answer=str(resource.link), clarification=clarification)]
 
         return AgentOutput(
@@ -163,11 +161,9 @@ class AgentCodeWriterExecutor(BaseAgent):
     name = "code_writing_execution"
 
     def run(self, resources:list[ContentResource]) -> AgentOutput:
-        agent_workflow = AgentWorkflow(
+        agent_workflow = CodeWriterExecutorWorkflow(
             name=self.name,
-            system_prompt="You are an agent that can write and execute code.",
             llm=llm,
-            tools=[eda_table_tool, write_code_tool, execute_code_tool, task_completed_tool],
             context=resources,
             task=self.activity,
         )
