@@ -20,13 +20,13 @@ class DeepWebSearchWorkflow(AgentWorkflow):
 
     Creates a workflow that can perform web searches and process results.
     """
-    agent_prompt: str = "You are a web researcher"
     tools: list[FunctionTool] = [web_search_tool]
     graph: CompiledStateGraph | None = None
 
     def __init__(
         self,
         name: str,
+        agent_capability: str,
         llm: FunctionCallingLLM,
         context: list[ContentResource],
         task: str,
@@ -42,6 +42,7 @@ class DeepWebSearchWorkflow(AgentWorkflow):
         """
         super().__init__(
             name=name,
+            agent_capability=agent_capability,
             llm=llm,
             context=context,
             task=task,
@@ -54,9 +55,9 @@ class DeepWebSearchWorkflow(AgentWorkflow):
         content = state["last_output"].output
         if state["last_output"].type == ToolOutputType.FILE:
             # write the output to a tempfile
-            fp = tempfile.NamedTemporaryFile(delete_on_close=False, mode="w", encoding="utf-8")
+            fp = tempfile.NamedTemporaryFile(delete=False, delete_on_close=False, mode="w", encoding="utf-8")
             fp.write(state["last_output"].output); fp.close()
-            content = f"Web search was successful. The results are stored in {fp.name}. PROCEED TO TEXT PROCESSING!"
+            content = f"Web search SUCCESSFUL for task: {state['task']}. The downloaded info is stored in {fp.name}. SUCCESS = PROCEED TO TEXT PROCESSING!"
             link = fp.name
 
         state["context"].append(

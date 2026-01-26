@@ -159,16 +159,17 @@ def execute_code(file_path: str) -> str:
         )
 
         output = []
+        if result.returncode != 0:
+            output.append(f"\n=== Could not produce results, exit code: {result.returncode} ===")
+        else:
+            output.append(f"\n=== SUCCESSFULLY RAN THE CODE FOR THE TASK. SEE OUTPUT BELOW ===")
         if result.stdout:
-            output.append("=== STDOUT ===")
+            output.append("STDOUT:")
             output.append(result.stdout)
 
         if result.stderr:
-            output.append("\n=== STDERR ===")
+            output.append("STDERR:")
             output.append(result.stderr)
-
-        if result.returncode != 0:
-            output.append(f"\n=== Exit Code: {result.returncode} ===")
 
         logger.info(f"Executed code from {file_path} with exit code {result.returncode}")
         return "\n".join(output) if output else "Code executed successfully with no output."

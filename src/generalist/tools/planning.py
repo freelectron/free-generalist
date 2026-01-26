@@ -118,10 +118,10 @@ You are a planning agent. Inspect the Task (including its `plan`) and the provid
 Choose the single next logical step to execute and the one best capability to perform it.
 
 Capabilities:
-- `{AgentDeepWebSearch.name}`: search and download web resources only, not for processing the content or getting any answers on the content.
-- `{AgentUnstructuredDataProcessor.name}`: analyze or extract information from text already in memory.
-- `{AgentCodeWriterExecutor.name}`: write or run code and/or manipulate files.
-- `{AgentAudioProcessor.name}`: download/transcribe audio and store results in memory.
+- `{AgentDeepWebSearch.name}`: {AgentDeepWebSearch.capability}.
+- `{AgentUnstructuredDataProcessor.name}`: {AgentUnstructuredDataProcessor.capability}.
+- `{AgentCodeWriterExecutor.name}`: {AgentCodeWriterExecutor.capability}.
+- `{AgentAudioProcessor.name}`: {AgentAudioProcessor.capability}.
 
 Rules:
 1. Pick exactly one step to perform now and exactly one capability.

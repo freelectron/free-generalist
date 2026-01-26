@@ -20,13 +20,13 @@ class UnstructuredTextProcessorWorkflow(AgentWorkflow):
 
     Creates a workflow that can process and analyze unstructured text data.
     """
-    agent_prompt: str = "You are unstructured text processor"
     tools: list[FunctionTool] = []
     graph: CompiledStateGraph | None = None
 
     def __init__(
         self,
         name: str,
+        agent_capability: str,
         llm: FunctionCallingLLM,
         context: list[ContentResource],
         task: str,
@@ -42,30 +42,8 @@ class UnstructuredTextProcessorWorkflow(AgentWorkflow):
         """
         super().__init__(
             name=name,
+            agent_capability=agent_capability,
             llm=llm,
             context=context,
             task=task,
         )
-
-    def process_tool_output(self, state: AgentState):
-        """
-        """
-        link = ""
-        content = state["last_output"].output
-        if state["last_output"].type == ToolOutputType.FILE:
-            # write the output to a tempfile
-            fp = tempfile.NamedTemporaryFile(delete_on_close=False, mode="w", encoding="utf-8")
-            fp.write(state["last_output"].output); fp.close()
-            content = f"Output of the this call is stored in {fp.name}"
-            link = fp.name
-
-        state["context"].append(
-            ContentResource(
-                provided_by=state["last_output"].name,
-                link=link,
-                content=content,
-                metadata={},
-            )
-        )
-
-        return state

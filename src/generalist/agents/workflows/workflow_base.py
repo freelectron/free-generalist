@@ -47,13 +47,13 @@ class AgentWorkflow:
     Creates a LangGraph workflow that can be customized with different tools
     and decision-making logic for different agent types.
     """
-    agent_prompt: str
     tools: list[FunctionTool]
     graph: CompiledStateGraph
 
     def __init__(
         self,
         name: str,
+        agent_capability: str,
         llm: FunctionCallingLLM,
         context: list[ContentResource],
         task: str,
@@ -63,11 +63,13 @@ class AgentWorkflow:
 
         Args:
             name (str): agent name
+            agent_capability (str): short description of what the agent can and supposed to do.
             llm (FunctionCallingLLM): the brain
             task (str): task that needs to be performed
             context (list[ContentResource]): summary of what has been achieved in the previous steps
         """
         self.agent_name = name
+        self.agent_capability = agent_capability
         self.llm = llm
         self.state = AgentState(step=0, task=task, context=context)
 
@@ -75,7 +77,7 @@ class AgentWorkflow:
         """
         """
         prompt = f"""
-        Role: {self.agent_prompt}
+        Role: {self.agent_capability}
         
         Task: {state["task"]}
         
@@ -100,7 +102,7 @@ class AgentWorkflow:
         # Note: this is an attempt to keep the context for an agent small
         if state["last_output"].type == ToolOutputType.FILE:
             # write the output to a tempfile
-            fp = tempfile.NamedTemporaryFile(delete_on_close=False, mode="w", encoding="utf-8")
+            fp = tempfile.NamedTemporaryFile(delete=False, delete_on_close=False, mode="w", encoding="utf-8")
             fp.write(state["last_output"].output); fp.close()
             logger.info(f"Wrote {state["last_output"].name} to a file {fp.name}.Output:\n{state["last_output"].output}")
             content = f"Output of {state["last_output"].name} tool is stored in {fp.name}."
@@ -120,7 +122,7 @@ class AgentWorkflow:
     def evaluate_completion(self, state: AgentState):
         """
         """
-        decision = construct_task_completion(state["task"], str(state["context"]))
+        decision = construct_task_completion(state["task"], str(state["context"]), self.agent_capability)
         # Early stopping if answer exists
         if decision.completed:
             return "end"

@@ -3,7 +3,7 @@ import re
 from typing import Optional, Tuple
 from dataclasses import dataclass
 
-from .workflows.workflow_code import CodeWriterExecutorWorkflow
+from .workflows.workflow_coder import CodeWriterExecutorWorkflow
 from .workflows.workflow_web_search import DeepWebSearchWorkflow
 from ..models.core import llm
 from ..tools.summarisers import construct_short_answer
@@ -29,6 +29,7 @@ class AgentOutput:
 class BaseAgent:
     """Base class for all agent capabilities."""
     name: str  # Defines that all subclasses should have a 'name' class attribute
+    capability: str # short description of what the agent is supposed to do
 
     def __init__(self, activity: str):
         """
@@ -57,6 +58,7 @@ class BaseAgent:
 class AgentDeepWebSearch(BaseAgent):
     """Capability for performing a deep web search."""
     name = "deep_web_search"
+    capability = "search and download web resources only, not for processing the content or getting any answers on the content"
 
     def __init__(self, activity: str):
         super().__init__(activity=activity)
@@ -66,6 +68,7 @@ class AgentDeepWebSearch(BaseAgent):
     def run(self) -> AgentOutput:
         agent_workflow = DeepWebSearchWorkflow(
             name=self.name,
+            agent_capability=self.capability,
             llm=llm,
             context=[],
             task=self.activity,
@@ -95,6 +98,7 @@ class AgentDeepWebSearch(BaseAgent):
 class AgentAudioProcessor(BaseAgent):
     """Capability for processing audio files."""
     name = "audio_processing"
+    capability = "download and/or transcribe audio files"
 
     def run(self, resources: list[ContentResource]):
         
@@ -127,6 +131,7 @@ class AgentImageProcessor(BaseAgent):
 class AgentUnstructuredDataProcessor(BaseAgent):
     """Capability for processing unstructured text."""
     name = "unstructured_data_processing"
+    capability = "analyze or extract information from downloaded text"
 
     def run(self, resources: list[ContentResource]) -> AgentOutput:
         """
@@ -159,10 +164,12 @@ class AgentUnstructuredDataProcessor(BaseAgent):
 class AgentCodeWriterExecutor(BaseAgent):
     """Capability for writing and executing python code"""
     name = "code_writing_execution"
+    capability = "write and run code for analysing files (e.g., csv, parquet) or performing math/statistical operations"
 
     def run(self, resources:list[ContentResource]) -> AgentOutput:
         agent_workflow = CodeWriterExecutorWorkflow(
             name=self.name,
+            agent_capability=self.capability,
             llm=llm,
             context=resources,
             task=self.activity,

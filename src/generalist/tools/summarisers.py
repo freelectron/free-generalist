@@ -38,35 +38,35 @@ def construct_short_answer(task: str, context: str) -> ShortAnswer:
 
     Your answer should be in a valid JSON format like so:
     {{
-        "answered": <write only "true" or "false", put "true" if the answers for the TASK are found in resources, else put "false">  
+        "answered": <write only "true" or "false", put "true" if the answers for the TASK is clearly stated in the resources, else put "false">  
         "answer": "<a single number, word, or phrase which is the answer to the question>",
         "clarification": "<a very short mention of what the answer is based on, **always relate it back to the question**>"
     }}
 
     Rules:
-        - If the text contains the complete answer → put the exact answer in the "answer" field & "true" in "answered" field.  
-        - If the text contains no relevant information → put "not found" in the "answer" field & "true" in "answered" field.
-        - If the text contains some but not all information → put "answer": "not found".
-        - The "clarification" must mention the relevant part of the text and explain briefly the reasoning based on the task/question.
+        - If the text contains the complete answer → put the exact answer in the "answer" field & "true" in the "answered" field.  
+        - If the text contains no relevant information → put "not found" in the "answer" field & "false" in the "answered" field.
+        - If the text contains some but not all information → put "answer": "not found" & "false" in the "answered" field.
+        - The "clarification" must mention the relevant part of the text and explain briefly the reasoning why the question has been answered or not.
     
     Example 1:
      Resources:
-        The population of Paris in 2023 was estimated to be 2.16 million people according to the National Institute of Statistics.;
+        The population of Paris in 2023 was estimated to be 2.16 million people according to the National Institute of Statistics;
         London's population exceeds 9 million residents as of the latest census;
-        Berlin has approximately 3.8 million inhabitants within city limits.;
+        Berlin has approximately 3.8 million inhabitants within city limits;
      Task: What is the population of Paris?
      Output:
      {{
         "answered": "true",
         "answer": "2.16 million",
-        "clarification": "The answer is based on resource 1 which states Paris had an estimated population of 2.16 million in 2023, directly answering the question about Paris's population."
+        "clarification": "Resource 1 states that Paris had an estimated population of 2.16 million in 2023."
     }}
     
     Example 2:
      Resources:
         "Mount Everest's summit reaches high above the sea level (2020 date)."
-        "The Himalayan peak known as Everest stands at 29,031.7 feet tall."
-        "Everest's height was recalculated in 2020 to be 8,848.86 meters according to joint Chinese-Nepalese survey."
+        "The Himalayan peak known is surrounded by beautiful scenery, but it is extremely hard to reach alone."
+        "Everest's height was recalculated in 2020 by joint Chinese-Nepalese survey."
      Task: How tall is Mount Everest in meters?
      Output:
      {{
@@ -94,8 +94,9 @@ def construct_short_answer(task: str, context: str) -> ShortAnswer:
         )
 
 
-def construct_task_completion(task: str, context: str) -> AgentRunSummary:
-    """Evaluates whether a task has been accomplished based on provided context.
+def construct_task_completion(task: str, context: str, agent_capability: str) -> AgentRunSummary:
+    """
+    Evaluates whether a task has been accomplished based on provided context.
 
     The task does not require a final answer. It is considered completed
     if the main steps or intent appear to be fulfilled based solely on
@@ -103,35 +104,30 @@ def construct_task_completion(task: str, context: str) -> AgentRunSummary:
     """
 
     prompt = f"""
+    You are an agent that can {agent_capability}!
     You are presented with a list of information describing work, actions,
-    or outcomes related to a task.
+    or outcomes related to the task.
 
     RESOURCES:
     {context}
 
     Based **ONLY** on the resources above and without any additional assumptions,
-    determine whether the task has been accomplished. A concrete answer
-    is not required as long as the main steps or intent are completed.
+    determine whether the task has been accomplished. 
 
     TASK:
     {task}
-
+    
     Your response MUST be valid JSON in the following format:
     {{
         "completed": <write only "true" or "false">,
-        "summary": "<a short phrase describing what was achieved, or 'not completed'>"
+        "summary": "<a short phrase describing what was achieved, or why it was not completed.'>"
     }}
     
-    Example:
+    Example 1:
      Task: Calculate what the average prices was at the end of the day for the following file trades.csv.  
+     Agent: code_writing_execution
      Resources:
         [
-            ContentResource(
-                provided_by="eda_tool"), 
-                content="Identified columns = [close, open, highest, lowest, date], average_close = 2102",
-                link="freelectron/trades.csv",
-                metainfo={{}}, 
-            ), 
             ContentResource(
                 provided_by="write_code"), 
                 content="import pandas as pd; # read file ... ",
@@ -144,11 +140,33 @@ def construct_task_completion(task: str, context: str) -> AgentRunSummary:
             "completed": "false",
             "summary": "the code to complete the task is written but it is not executed."
         }}
-
+    Explanation: code_writing_execution can not only write code but also execute it, and the task asks for concrete numerical output.
+    
+    Example 2:
+     Task: Search information about the dotcom economical crisis and find the dates. 
+     Agent: deep_web_search 
+     Resources:
+        [
+            ContentResource(
+                provided_by="deep_web_search"), 
+                content="downloaded content for 2001 economic crisis to /var/tmp/h3893298432/deiowur329",
+                link="/var/tmp/h3893298432/deiowur329",
+                metainfo={{}}, 
+            ), 
+        ]
+     Output:
+        {{
+            "completed": "true",
+            "summary": "the information has been found and stored locally for further processing"
+        }}
+    Explanation: deep_web_search can download resources and it has done so.
+    
     Rules:
         - If the main steps or intent of the task are clearly completed → "completed": true
         - If the task appears partially done but core objectives are met → "completed": true
         - If key steps are missing or the task intent is not fulfilled → "completed": false
+    
+    **IMPORTANT**: A concrete answer is not required as long as the main steps or intent are completed and the task does not ask for it explicitly.
     """
 
     llm_response = llm.complete(prompt)

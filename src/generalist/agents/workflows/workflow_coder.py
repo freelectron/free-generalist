@@ -19,13 +19,13 @@ class CodeWriterExecutorWorkflow(AgentWorkflow):
 
     Creates a workflow that can write and execute Python code.
     """
-    agent_prompt: str = "You are code writer and executor"
     tools: list[FunctionTool] = [eda_table_tool, write_code_tool, execute_code_tool]
     graph: CompiledStateGraph | None = None
 
     def __init__(
         self,
         name: str,
+        agent_capability: str,
         llm: FunctionCallingLLM,
         context: list[ContentResource],
         task: str,
@@ -41,6 +41,7 @@ class CodeWriterExecutorWorkflow(AgentWorkflow):
         """
         super().__init__(
             name=name,
+            agent_capability=agent_capability,
             llm=llm,
             context=context,
             task=task,
@@ -49,15 +50,19 @@ class CodeWriterExecutorWorkflow(AgentWorkflow):
     def process_tool_output(self, state: AgentState):
         """
         """
-        link = ""
+        link = state["last_output"].output
         content = state["last_output"].output
         if state["last_output"].type == ToolOutputType.FILE:
             # write the output to a tempfile
-            fp = tempfile.NamedTemporaryFile(delete_on_close=False, mode="w", encoding="utf-8")
+            fp = tempfile.NamedTemporaryFile(delete=False, delete_on_close=False, mode="w", encoding="utf-8")
             fp.write(state["last_output"].output); fp.close()
             content = (f"Output of {state["last_output"].name} run is stored in {fp.name}."
                        f"EXECUTE THIS FILE NEXT TO GET THE RESULT.")
             link = fp.name
+
+        # TODO: find how to adjust the code so that I can process the output of each tool code differently
+        if state["last_output"].name == execute_code_tool.metadata.name:
+           content = f"Executed code for task: {state['task']}.\nOUTPUT:" + content
 
         state["context"].append(
             ContentResource(
