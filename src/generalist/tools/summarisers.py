@@ -26,13 +26,10 @@ def construct_short_answer(task: str, context: str) -> ShortAnswer:
         A ShortAnswer dataclass instance containing the answer and clarification.
     """
     prompt = f"""
-    You are presented with a list of information from one or several sources that you need to summarize.
-
-    RESOURCES:
+    You are presented with a list of information from one or several sources. Resources:
     {context}
 
-    Based **ONLY** on that resource list and without any additional assumptions from your side, perform the task specified (or answer the question).
-
+    Based **ONLY** on that resource list and without any additional assumptions from your side, evaluate whether the task specified was performed. 
     TASK:
     {task}
 

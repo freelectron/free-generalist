@@ -57,6 +57,7 @@ class AgentWorkflow:
         llm: FunctionCallingLLM,
         context: list[ContentResource],
         task: str,
+        tools: list[FunctionTool] | None = None
     ):
         """
         Initialize the workflow builder.
@@ -67,11 +68,13 @@ class AgentWorkflow:
             llm (FunctionCallingLLM): the brain
             task (str): task that needs to be performed
             context (list[ContentResource]): summary of what has been achieved in the previous steps
+            tools: list of tools that the llm can call
         """
         self.agent_name = name
         self.agent_capability = agent_capability
         self.llm = llm
         self.state = AgentState(step=0, task=task, context=context)
+        self.tools = tools if tools else self.tools
 
     def execute_tool(self, state: AgentState):
         """

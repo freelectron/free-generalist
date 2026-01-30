@@ -85,8 +85,8 @@ class AgentDeepWebSearch(BaseAgent):
             link=last_resource.link,
             metadata=last_resource.metadata,
         )
-        clarification = f"Downloaded webpages for the task: {self.activity}. See {str(resource)}"
-        answer = [ShortAnswer(answered=True, answer=str(resource.link), clarification=clarification)]
+        clarification = f"For answering '{self.activity}' inspect {str(resource.link)} !!!"
+        answer = [ShortAnswer(answered=False, answer="None", clarification=clarification)]
 
         return AgentOutput(
             task=self.activity,
@@ -101,7 +101,7 @@ class AgentAudioProcessor(BaseAgent):
     capability = "download and/or transcribe audio files"
 
     def run(self, resources: list[ContentResource]):
-        
+
         # FIXME: find a way to transcribe the correct audio file from the resources
         resource = resources[0]
 
@@ -120,7 +120,7 @@ class AgentAudioProcessor(BaseAgent):
         return AgentOutput(
             task=self.activity,
             answers=short_answers
-        ) 
+        )
 
 
 class AgentImageProcessor(BaseAgent):
@@ -143,21 +143,26 @@ class AgentUnstructuredDataProcessor(BaseAgent):
             if not resource.link.startswith("http") or resource.link.startswith("www"):
                 with open(resource.link, "rt") as f:
                     content = f.read()
+            else:
+                logger.warning(f"Cannot read from non-local resource {resource}")
             resource_contents.append(content)
+
+        if not resource_contents:
+            logger.error(f"No resources to analyse {resources} or no content gathered.")
 
         # Join contents all together to give to a chunk splitter
         text  = "\n".join(resource_contents)
         answers = process_text(self.activity, text)
 
+        # TODO: ideally, we would want something like "map-reduce" on answers
+        short_answer = construct_short_answer(self.activity, str(answers))
+
         # Remove processed resources
         resources.clear()
 
-        short_answers = [construct_short_answer(self.activity, answer) for answer in answers] 
-
         return AgentOutput(
             task=self.activity,
-            answers=short_answers,
-            resources=[]
+            answers=[short_answer],
         )
 
 
@@ -177,7 +182,7 @@ class AgentCodeWriterExecutor(BaseAgent):
         final_state = agent_workflow.run()
         logger.info(f" After running the agent workflow :\n{final_state}")
 
-        short_answers = [construct_short_answer(self.activity, final_state)]
+        short_answers = [construct_short_answer(self.activity, str(final_state))]
 
         return AgentOutput(
             task=self.activity,

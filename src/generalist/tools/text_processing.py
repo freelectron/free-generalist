@@ -119,7 +119,7 @@ def _process_chunk(task: str, text: str) -> str:
     return llm_result.text
 
 
-def process_text(task: str, text: str, chunk_size: int = 10000, chunk_overlap: int = 500) -> list[str]:
+def process_text(task: str, text: str, chunk_size: int = 4000, chunk_overlap: int = 500) -> list[str]:
     """Splits a large text into chunks and processes each chunk with an LLM to perform the mentioned task..
 
     This is useful for analyzing documents that are too large to fit into a

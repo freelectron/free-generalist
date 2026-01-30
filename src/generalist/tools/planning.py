@@ -1,6 +1,6 @@
 import json
 
-from ..agents.core import AgentAudioProcessor, AgentCodeWriterExecutor, AgentDeepWebSearch, AgentUnstructuredDataProcessor, AgentPlan
+from ..agents.core import AgentAudioProcessor, AgentDeepWebSearch, AgentUnstructuredDataProcessor, AgentPlan, AgentCodeWriterExecutor
 from .data_model import Task
 from ..models.core import llm
 from clog import get_logger
@@ -57,7 +57,7 @@ Instructions:
     in AVAILABLE RESOURCES. If available resources DO NOT already include links or files mentioned in the user's task, 
     provide a short description (content) and the link for the resource.
 3. Identify what information and steps are still missing to achieve the goal, i.e., answer the question.  
-4. Develop a Chronological Action Plan: Break down the objective into a logical sequence of high-level steps (aim for 1, 2 or 3 steps).
+4. Develop a Chronological Action Plan: Break down the objective into a logical sequence of high-level steps.
 
 Example Output Format (ALWAYS **JSON**):
 {{
@@ -97,8 +97,6 @@ where
   **IMPORTANT**: you should only include the minimum number of steps to accomplish the task, do not include verification steps.
   **IMPORTANT**: do not include any json formatting directives, output plain json string.
   **IMPORTANT**: only include the resource that are URLs or URIs. 
-  **IMPORTANT**: Do not duplicate existing resources:
-   If no resource (exact LINK or FILE/FOLDER PATH) is mentioned, do not include resource key in the answer/
 """
     task_response = llm.complete(prompt)
 
@@ -134,6 +132,16 @@ Output format:
 - "activity": A clear and concise description of the specific action to be performed using the chosen capability, incorporating relevant details from the context
 - "capability": One of the above mentioned capabilities that should be used to accomplish the activity
 
+ONLY RESPOND WITH A SINGLE JSON, in this exact JSON format:
+{{
+  "subplan": [
+    {{
+      "activity": "...",
+      "capability": "..."
+    }}
+  ]
+}}
+
 Example 1: Selecting next logical step based on context
 Task: "Task(question='What is the age of the main actor of Inception?', objective='Identify the main actor who played in Inception and their age', plan=['Determine the main character of the movie Inception', 'Look up the age of that actor'])"
 Context: "Step 0: [ShortAnswer(answered=True, answer='Leonardo DiCaprio played the main character in Inception')]"
@@ -165,21 +173,8 @@ Output:
 Reasoning: Step 0 is completed, so we move to step 1. The activity incorporates specific details from context (Arctic focus, PDF location).
 
 ---
-
-**IMPORTANT**: do not change or autocorrect the resource links, e.g., <>/freelectron/<> should stay as 'freelectron'     
-
 Task: "{task}"
 Context: {context}
-
-ONLY RESPOND WITH A SINGLE JSON, in this exact JSON format:
-{{
-  "subplan": [
-    {{
-      "activity": "...",
-      "capability": "..."
-    }}
-  ]
-}}
 """
     response = llm.complete(planning_prompt)
     response_text = response.text.strip()
