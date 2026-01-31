@@ -58,7 +58,7 @@ class BaseAgent:
 class AgentDeepWebSearch(BaseAgent):
     """Capability for performing a deep web search."""
     name = "deep_web_search"
-    capability = "search and download web resources only, not for processing the content or getting any answers on the content"
+    capability = "search and download web information, not for processing the content or getting any answers on the content"
 
     def __init__(self, activity: str):
         super().__init__(activity=activity)
@@ -85,7 +85,7 @@ class AgentDeepWebSearch(BaseAgent):
             link=last_resource.link,
             metadata=last_resource.metadata,
         )
-        clarification = f"For answering '{self.activity}' inspect {str(resource.link)} !!!"
+        clarification = f"For answering '{self.activity}' inspect {resource.link} by triggering {AgentUnstructuredDataProcessor.name}!"
         answer = [ShortAnswer(answered=False, answer="None", clarification=clarification)]
 
         return AgentOutput(
@@ -131,7 +131,7 @@ class AgentImageProcessor(BaseAgent):
 class AgentUnstructuredDataProcessor(BaseAgent):
     """Capability for processing unstructured text."""
     name = "unstructured_data_processing"
-    capability = "analyze or extract information from downloaded text"
+    capability = "analyze or extract information from the downloaded text"
 
     def run(self, resources: list[ContentResource]) -> AgentOutput:
         """

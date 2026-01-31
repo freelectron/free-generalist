@@ -57,7 +57,7 @@ class DeepWebSearchWorkflow(AgentWorkflow):
             # write the output to a tempfile
             fp = tempfile.NamedTemporaryFile(delete=False, delete_on_close=False, mode="w", encoding="utf-8")
             fp.write(state["last_output"].output); fp.close()
-            content = f"Web search SUCCESSFUL for task: {state['task']}. The downloaded info is stored in {fp.name}. SUCCESS = PROCEED TO TEXT PROCESSING!"
+            content = f"Web search SUCCESSFUL for task: {state['task']}. The downloaded info is stored in {fp.name}. PROCEED TO UNSTRUCTURED TEXT PROCESSING!"
             link = fp.name
 
         state["context"].append(

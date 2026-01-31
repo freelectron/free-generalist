@@ -62,7 +62,7 @@ def parse_resource(task: str):
      "link": "https://finance.yahoo.com/news/ais-valuation-problem.html"
     }}
     In:
-    Task = "Go online to wikipidia and search history of Prussia"
+    Task = "Go online to wikipedia and search history of Prussia"
     Out: NOT FOUND
     
     IF no link is given, return a single string "NOT FOUND" 

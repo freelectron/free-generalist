@@ -59,7 +59,7 @@ Instructions:
 3. Identify what information and steps are still missing to achieve the goal, i.e., answer the question.  
 4. Develop a Chronological Action Plan: Break down the objective into a logical sequence of high-level steps.
 
-Example Output Format (ALWAYS **JSON**):
+Example (ALWAYS **JSON**):
 {{
   "objective": "Produce a plot with the sales data of the provided csv (/home/user_name/datat/company_balance_sheet.csv)",
   "resource":
@@ -73,7 +73,7 @@ Example Output Format (ALWAYS **JSON**):
   ]
 }}
 
-Another Example Output Format:
+Another Example:
 {{
   "objective": "Examine the video and extract the dialogue by Teal'c in response to the question 'Isn't that hot?'",
   "plan": [
@@ -103,7 +103,7 @@ where
     return task_response.text
 
 
-def determine_capabilities(task: Task, context: str = "") -> dict:
+def determine_capabilities(task: str, context: str = "") -> dict:
     """
     Analyzes a task and automatically determines which step from the plan should be executed next
     based on the context, then selects the single most appropriate capability for that step.
@@ -122,11 +122,8 @@ Capabilities:
 - `{AgentAudioProcessor.name}`: {AgentAudioProcessor.capability}.
 
 Rules:
-1. Pick exactly one step to perform now and exactly one capability.
+1. Pick exactly one step to perform now and exactly one capability to use.
 2. Incorporate relevant details from `context` (discovered names, etc.) into the activity description.
-3. If `context` is empty, choose the first step in the plan.
-4. Do not modify or autocorrect resource links (preserve exact strings).
-5. Output ONLY a single JSON in this exact format (no extra text):
 
 Output format:
 - "activity": A clear and concise description of the specific action to be performed using the chosen capability, incorporating relevant details from the context
@@ -142,7 +139,7 @@ ONLY RESPOND WITH A SINGLE JSON, in this exact JSON format:
   ]
 }}
 
-Example 1: Selecting next logical step based on context
+Example: Selecting next logical step based on context
 Task: "Task(question='What is the age of the main actor of Inception?', objective='Identify the main actor who played in Inception and their age', plan=['Determine the main character of the movie Inception', 'Look up the age of that actor'])"
 Context: "Step 0: [ShortAnswer(answered=True, answer='Leonardo DiCaprio played the main character in Inception')]"
 Output:
@@ -154,23 +151,7 @@ Output:
     }}
   ]
 }}
-Reasoning: Step 0 is completed: main actor identified as Leonardo DiCaprio from previous "{AgentDeepWebSearch.name}" -> "{AgentUnstructuredDataProcessor.name}" steps.
-    We proceed to step 1 and incorporate the discovered name into the another search activity
-     which will be followed by "{AgentUnstructuredDataProcessor.name}" to actually retrieve the age from the downloaded sources.  
-
-Example 2: Using context to refine the next action
-Task: "Task(objective='Summarize the article about climate change', plan=['Search for and download the article', 'Extract key information from the article'])"
-Context: "Step 0: [ShortAnswer(answered=True, answer='Downloaded article from Nature.com about Arctic climate change, stored contents in the resources)]"
-Output:
-{{
-  "subplan": [
-    {{
-        "activity": "Analyze and extract key information about Arctic climate change from the article (content is provided in resources)",
-        "capability": "{AgentUnstructuredDataProcessor.name}"
-    }}
-  ]
-}}
-Reasoning: Step 0 is completed, so we move to step 1. The activity incorporates specific details from context (Arctic focus, PDF location).
+Reasoning: Step 0 is completed: main actor identified as Leonardo DiCaprio. Search for its age now.
 
 ---
 Task: "{task}"
