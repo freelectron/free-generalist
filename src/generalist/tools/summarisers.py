@@ -26,11 +26,10 @@ def construct_short_answer(task: str, context: str) -> ShortAnswer:
         A ShortAnswer dataclass instance containing the answer and clarification.
     """
     prompt = f"""
-    You are presented with a list of information from one or several sources. 
-    Resources to use:
+    You are presented with a list of information from one or several sources:
     {context}
 
-    Based **ONLY** on that resource list and without any additional assumptions from your side, evaluate whether the task specified was performed. 
+    Based **ONLY** on that information and without any additional assumptions from your side, evaluate whether the task specified was performed. 
     TASK:
     {task}
 
@@ -38,10 +37,11 @@ def construct_short_answer(task: str, context: str) -> ShortAnswer:
     {{
         "answered": <write only "true" or "false", put "true" if the answers for the TASK is clearly stated in the resources, else put "false">  
         "answer": "<a single number, word, or phrase which is the answer to the question>",
-        "clarification": "<a very short mention of what the answer is based on, **always relate it back to the question**>"
+        "clarification": "<a very short mention of what is stated in the context/sources>"
     }}
     
-    **IMPORTANT**: if only partial answer, do not mark the task as answered : true ! 
+    **IMPORTANT**: regardless whether the task has been completed, `clarification` field should include the main findings. 
+    **IMPORTANT**: if only partial answer, do not mark the task as answered:true !!! 
     """
 
     llm_response = llm.complete(prompt)
@@ -72,62 +72,18 @@ def construct_task_completion(task: str, context: str, agent_capability: str) ->
     """
 
     prompt = f"""
-    You are an agent that can {agent_capability}!
-    You are presented with a list of information describing work, actions,
-    or outcomes related to the task.
-
-    RESOURCES:
+    You are an agent that can ONLY {agent_capability} !
+    You are presented with a list of information describing work, actions, or outcomes of previous steps:
     {context}
 
-    Based **ONLY** on the resources above and without any additional assumptions,
-    determine whether the task has been accomplished. 
-
-    TASK:
+    Based **ONLY** on the resources above and without any additional assumptions, determine whether the agent should proceed to the next step:
     {task}
     
     Your response MUST be valid JSON in the following format:
     {{
-        "completed": <write only "true" or "false">,
-        "summary": "<a short phrase describing what was achieved, or why it was not completed.'>"
+        "done": <write only "true" or "false">,
+        "summary": "<a short phrase describing what was achieved, and if agent can do something else with its available capabilities.>"
     }}
-    
-    Example 1:
-     Task: Calculate what the average prices was at the end of the day for the following file trades.csv.  
-     Agent: code_writing_execution
-     Resources:
-        [
-            ContentResource(
-                provided_by="write_code"), 
-                content="import pandas as pd; # read file ... ",
-                link="",
-                metainfo={{}}, 
-            ), 
-        ]
-     Output:
-        {{
-            "completed": "false",
-            "summary": "the code to complete the task is written but it is not executed."
-        }}
-    Explanation: code_writing_execution can not only write code but also execute it, and the task asks for concrete numerical output.
-    
-    Example 2:
-     Task: Search information about the dotcom economical crisis and find the dates. 
-     Agent: deep_web_search 
-     Resources:
-        [
-            ContentResource(
-                provided_by="deep_web_search"), 
-                content="downloaded content for 2001 economic crisis to /var/tmp/h3893298432/deiowur329",
-                link="/var/tmp/h3893298432/deiowur329",
-                metainfo={{}}, 
-            ), 
-        ]
-     Output:
-        {{
-            "completed": "true",
-            "summary": "the information has been found and stored locally for further processing"
-        }}
-    Explanation: deep_web_search can download resources and it has done so.
     """
 
     llm_response = llm.complete(prompt)
@@ -143,7 +99,7 @@ def construct_task_completion(task: str, context: str, agent_capability: str) ->
     data = json.loads(response_text)
 
     return AgentRunSummary(
-        completed=True if data.get("completed") in ["True", "true", "yes", "1"] else False,
+        completed=True if data.get("done") in ["True", "true", "yes", "1"] else False,
         summary=data.get("summary", "did-not-parse"),
     )
 

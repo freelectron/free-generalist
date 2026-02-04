@@ -6,7 +6,7 @@ from langgraph.graph.state import CompiledStateGraph
 
 from generalist.agents.workflows.workflow_base import AgentWorkflow, AgentState
 from generalist.tools import ToolOutputType, eda_table_tool, write_code_tool, execute_code_tool
-from generalist.tools.data_model import ContentResource
+from generalist.tools.data_model import Context
 from clog import get_logger
 
 
@@ -27,7 +27,7 @@ class CodeWriterExecutorWorkflow(AgentWorkflow):
         name: str,
         agent_capability: str,
         llm: FunctionCallingLLM,
-        context: list[ContentResource],
+        context: list[Context],
         task: str,
     ):
         """
@@ -37,7 +37,7 @@ class CodeWriterExecutorWorkflow(AgentWorkflow):
             name (str): agent name
             llm (FunctionCallingLLM): the brain
             task (str): task that needs to be performed
-            context (list[ContentResource]): summary of what has been achieved in the previous steps
+            context (list[Context]): summary of what has been achieved in the previous steps
         """
         super().__init__(
             name=name,
@@ -65,7 +65,7 @@ class CodeWriterExecutorWorkflow(AgentWorkflow):
            content = f"Executed code for task: {state['task']}.\nOUTPUT:" + content
 
         state["context"].append(
-            ContentResource(
+            Context(
                 provided_by=state["last_output"].name,
                 link=link,
                 content=content,

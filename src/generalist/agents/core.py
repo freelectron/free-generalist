@@ -1,6 +1,6 @@
 import os
 import re
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Type
 from dataclasses import dataclass
 
 from .workflows.workflow_coder import CodeWriterExecutorWorkflow
@@ -8,7 +8,7 @@ from .workflows.workflow_web_search import DeepWebSearchWorkflow
 from ..models.core import llm
 from ..tools.summarisers import construct_short_answer
 from ..tools.text_processing import process_text
-from ..tools.data_model import ContentResource, ShortAnswer
+from ..tools.data_model import Context, ShortAnswer
 from ..tools.media import download_audio
 from ..tools.media import transcribe_mp3
 from clog import get_logger
@@ -23,7 +23,7 @@ class AgentOutput:
     # Based on resources or file attachments, a list of short answers to the task
     answers: Optional[list[ShortAnswer]] = None
     # Produced resources
-    resources: Optional[list[ContentResource]] = None
+    resources: Optional[list[Context]] = None
 
 
 class BaseAgent:
@@ -48,7 +48,7 @@ class BaseAgent:
         # 'self.name' correctly accesses the class attribute from the instance
         return f"{self.__class__.__name__}(name='{self.name}', activity='{self.activity}')"
     
-    def run(self, *args, **kwargs) -> AgentOutput:
+    def run(self, *args, **kwargs) -> Context:
         """
         Execute the main logic of the agent.
         """
@@ -58,14 +58,14 @@ class BaseAgent:
 class AgentDeepWebSearch(BaseAgent):
     """Capability for performing a deep web search."""
     name = "deep_web_search"
-    capability = "search and download web information, not for processing the content or getting any answers on the content"
+    capability = "searches and downloads web information, but does not process the content and retrieves information"
 
     def __init__(self, activity: str):
         super().__init__(activity=activity)
         self.queries_per_question: int = 1
         self.links_per_query: int = 1
 
-    def run(self) -> AgentOutput:
+    def run(self) -> Context:
         agent_workflow = DeepWebSearchWorkflow(
             name=self.name,
             agent_capability=self.capability,
@@ -79,61 +79,19 @@ class AgentDeepWebSearch(BaseAgent):
 
         # last output will be a content resource with the downloaded search results
         last_resource = final_state["context"][-1]
-        resource = ContentResource(
+        return Context(
             provided_by=self.name,
             content=last_resource.content,
             link=last_resource.link,
             metadata=last_resource.metadata,
         )
-        clarification = f"For answering '{self.activity}' inspect {resource.link} by triggering {AgentUnstructuredDataProcessor.name}!"
-        answer = [ShortAnswer(answered=False, answer="None", clarification=clarification)]
-
-        return AgentOutput(
-            task=self.activity,
-            answers=answer,
-            resources=[resource],
-        )
-
-
-class AgentAudioProcessor(BaseAgent):
-    """Capability for processing audio files."""
-    name = "audio_processing"
-    capability = "download and/or transcribe audio files"
-
-    def run(self, resources: list[ContentResource]):
-
-        # FIXME: find a way to transcribe the correct audio file from the resources
-        resource = resources[0]
-
-        # downloads the file from the web to local (do not provide extension)
-        temp_folder = os.environ.get("TEMP_FILES_FOLDER", "./")
-        cleaned_link = re.sub(r'[^A-Za-z0-9]', '', resource.link[-20])
-        file_path_no_extension = os.path.join(temp_folder, "audio_processor", cleaned_link)
-        file_path, meta = download_audio(file_path_no_extension, resource.link)
-        logger.info(f"Downloaded file to {file_path} with meta info {meta}.")
-
-        # transcribes the file and returns just the text
-        result = transcribe_mp3(file_path)
-
-        short_answers = [construct_short_answer(self.activity, result)]
-
-        return AgentOutput(
-            task=self.activity,
-            answers=short_answers
-        )
-
-
-class AgentImageProcessor(BaseAgent):
-    """Capability for processing image files."""
-    name = "image_processing"
-
 
 class AgentUnstructuredDataProcessor(BaseAgent):
     """Capability for processing unstructured text."""
     name = "unstructured_data_processing"
-    capability = "analyze or extract information from the downloaded text"
+    capability = "analyzes or extracts information from the downloaded resources/text"
 
-    def run(self, resources: list[ContentResource]) -> AgentOutput:
+    def run(self, resources: list[Context]) -> Context:
         """
         """
         resource_contents = []
@@ -157,21 +115,18 @@ class AgentUnstructuredDataProcessor(BaseAgent):
         # TODO: ideally, we would want something like "map-reduce" on answers
         short_answer = construct_short_answer(self.activity, str(answers))
 
-        # Remove processed resources
-        resources.clear()
-
-        return AgentOutput(
-            task=self.activity,
-            answers=[short_answer],
+        return Context(
+            provided_by=self.name,
+            content=str(short_answer),
         )
 
 
 class AgentCodeWriterExecutor(BaseAgent):
     """Capability for writing and executing python code"""
     name = "code_writing_execution"
-    capability = "write and run code for analysing files (e.g., csv, parquet) or performing math/statistical operations"
+    capability = "writes and runs code for analysing files (e.g., csv, parquet) or performing math/statistical operations"
 
-    def run(self, resources:list[ContentResource]) -> AgentOutput:
+    def run(self, resources:list[Context]) -> Context:
         agent_workflow = CodeWriterExecutorWorkflow(
             name=self.name,
             agent_capability=self.capability,
@@ -184,20 +139,19 @@ class AgentCodeWriterExecutor(BaseAgent):
 
         short_answers = [construct_short_answer(self.activity, str(final_state))]
 
-        return AgentOutput(
-            task=self.activity,
-            answers=short_answers,
+        return Context(
+            provided_by=self.name,
+            content=str(short_answers),
         )
 
 
 @dataclass
 class AgentPlan:
     """A structured plan outlining the sequence of capabilities and actions."""
-    subplan: list[Tuple[str, BaseAgent]]
+    activity: str
+    agent: Type[BaseAgent]
     capability_map = {
         AgentDeepWebSearch.name: AgentDeepWebSearch,
-        AgentAudioProcessor.name: AgentAudioProcessor,
-        AgentImageProcessor.name: AgentImageProcessor,
         AgentUnstructuredDataProcessor.name: AgentUnstructuredDataProcessor,
         AgentCodeWriterExecutor.name: AgentCodeWriterExecutor,
     }
@@ -207,15 +161,12 @@ class AgentPlan:
         """
         Convert JSON response into a CapabilityPlan with proper capability objects.
         """
-        subplan = []
-        for step in json_data["subplan"]:
-            cap_name = step["capability"]
-            activity = step["activity"]
+        cap_name = json_data["agent"]
+        activity = json_data["activity"]
 
-            if cap_name not in cls.capability_map:
-                raise ValueError(f"Unknown capability: {cap_name}")
+        if cap_name not in cls.capability_map:
+            raise ValueError(f"Unknown capability: {cap_name}")
 
-            cap_class = cls.capability_map[cap_name]
-            subplan.append((activity, cap_class))
+        cap_class = cls.capability_map[cap_name]
 
-        return AgentPlan(subplan=subplan)
+        return AgentPlan(activity=activity, agent=cap_class)

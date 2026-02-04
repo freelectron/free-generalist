@@ -1,3 +1,4 @@
+import os.path
 import tempfile
 
 from llama_index.core.llms.function_calling import FunctionCallingLLM
@@ -6,7 +7,7 @@ from langgraph.graph.state import CompiledStateGraph
 
 from generalist.agents.workflows.workflow_base import AgentState, AgentWorkflow
 from generalist.tools import ToolOutputType, web_search_tool
-from generalist.tools.data_model import ContentResource
+from generalist.tools.data_model import Context
 from clog import get_logger
 
 
@@ -28,7 +29,7 @@ class DeepWebSearchWorkflow(AgentWorkflow):
         name: str,
         agent_capability: str,
         llm: FunctionCallingLLM,
-        context: list[ContentResource],
+        context: list[Context],
         task: str,
     ):
         """
@@ -38,7 +39,7 @@ class DeepWebSearchWorkflow(AgentWorkflow):
             name (str): agent name
             llm (FunctionCallingLLM): the brain
             task (str): task that needs to be performed
-            context (list[ContentResource]): summary of what has been achieved in the previous steps
+            context (list[Context]): summary of what has been achieved in the previous steps
         """
         super().__init__(
             name=name,
@@ -57,11 +58,13 @@ class DeepWebSearchWorkflow(AgentWorkflow):
             # write the output to a tempfile
             fp = tempfile.NamedTemporaryFile(delete=False, delete_on_close=False, mode="w", encoding="utf-8")
             fp.write(state["last_output"].output); fp.close()
-            content = f"Web search SUCCESSFUL for task: {state['task']}. The downloaded info is stored in {fp.name}. PROCEED TO UNSTRUCTURED TEXT PROCESSING!"
+            content = (f"Web search SUCCESSFUL for task: {state['task']}. "
+                       f"The downloaded info is stored in {fp.name}. "
+                       f"PROCEED TO UNSTRUCTURED TEXT PROCESSING!")
             link = fp.name
 
         state["context"].append(
-            ContentResource(
+            Context(
                 provided_by=state["last_output"].name,
                 link=link,
                 content=content,
@@ -69,4 +72,11 @@ class DeepWebSearchWorkflow(AgentWorkflow):
             )
         )
 
-        return state
+    def evaluate_completion(self, state: AgentState):
+        if os.path.exists(state["context"][-1].link):
+            return "end"
+
+        if state['step'] >= MAX_STEPS:
+            return "end"
+
+        return "continue"

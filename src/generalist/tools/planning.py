@@ -1,6 +1,6 @@
 import json
 
-from ..agents.core import AgentAudioProcessor, AgentDeepWebSearch, AgentUnstructuredDataProcessor, AgentPlan, AgentCodeWriterExecutor
+from ..agents.core import AgentDeepWebSearch, AgentUnstructuredDataProcessor, AgentPlan, AgentCodeWriterExecutor
 from .data_model import Task
 from ..models.core import llm
 from clog import get_logger
@@ -112,50 +112,29 @@ def determine_capabilities(task: str, context: str = "") -> dict:
         AgentPlan: A dataclass containing a single sub-task with the chosen capability.
     """
     planning_prompt = f"""
-You are a planning agent. Inspect the Task (including its `plan`) and the provided `context` (what was already done).
-Choose the single next logical step to execute and the one best capability to perform it.
+Your task is to choose the most appropriate intermediary step from the plan to execute, based on the context.
+It is important that you never combine two or more steps of the plan, just choose one. 
 
-Capabilities:
+Plan: {task}
+Context: {context}
+
+Based on the step's task, choose one of the agents to perform it. Agents:
 - `{AgentDeepWebSearch.name}`: {AgentDeepWebSearch.capability}.
 - `{AgentUnstructuredDataProcessor.name}`: {AgentUnstructuredDataProcessor.capability}.
 - `{AgentCodeWriterExecutor.name}`: {AgentCodeWriterExecutor.capability}.
-- `{AgentAudioProcessor.name}`: {AgentAudioProcessor.capability}.
-
-Rules:
-1. Pick exactly one step to perform now and exactly one capability to use.
-2. Incorporate relevant details from `context` (discovered names, etc.) into the activity description.
 
 Output format:
-- "activity": A clear and concise description of the specific action to be performed using the chosen capability, incorporating relevant details from the context
-- "capability": One of the above mentioned capabilities that should be used to accomplish the activity
+- "activity": A clear and concise description of a SINGLE STEP to be performed using an agent's capability
+- "agent": One of the above mentioned capabilities that should be used to accomplish the activity
 
 ONLY RESPOND WITH A SINGLE JSON, in this exact JSON format:
 {{
-  "subplan": [
-    {{
-      "activity": "...",
-      "capability": "..."
-    }}
-  ]
+  "activity": "...",
+  "agent": "..."
 }}
 
-Example: Selecting next logical step based on context
-Task: "Task(question='What is the age of the main actor of Inception?', objective='Identify the main actor who played in Inception and their age', plan=['Determine the main character of the movie Inception', 'Look up the age of that actor'])"
-Context: "Step 0: [ShortAnswer(answered=True, answer='Leonardo DiCaprio played the main character in Inception')]"
-Output:
-{{
-  "subplan": [
-    {{
-      "activity": "Search for the current age of Leonardo DiCaprio online",
-      "capability": "{AgentDeepWebSearch.name}"
-    }}
-  ]
-}}
-Reasoning: Step 0 is completed: main actor identified as Leonardo DiCaprio. Search for its age now.
-
----
-Task: "{task}"
-Context: {context}
+**IMPORTANT**: Incorporate relevant details from the Context (discovered names, already done steps, files to use etc.) into your decision.
+**IMPORTANT**: You need to only call `{AgentUnstructuredDataProcessor.name}` when you have a relevant downloaded file to process in the context. 
 """
     response = llm.complete(planning_prompt)
     response_text = response.text.strip()

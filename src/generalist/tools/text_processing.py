@@ -2,7 +2,7 @@ import json
 
 from langchain_text_splitters import CharacterTextSplitter
 
-from .data_model import ContentResource
+from .data_model import Context
 from ..models.core import llm
 from clog import get_logger
 
@@ -18,7 +18,7 @@ def parse_resource(task: str):
     LLM identifies a resource, it should return a JSON object with the
     following keys: ``provided_by``, ``content``, and ``link``.
 
-    The function returns a ``ContentResource`` built from the parsed JSON when
+    The function returns a ``Context`` built from the parsed JSON when
     a resource is found. If the LLM responds with the string ``NOT FOUND``,
     the function returns ``None``.
 
@@ -26,7 +26,7 @@ def parse_resource(task: str):
         task: The user instruction or task string to inspect for a resource link.
 
     Returns:
-        A ``ContentResource`` populated from the LLM output if a resource was
+        A ``Context`` populated from the LLM output if a resource was
         identified; otherwise ``None``.
 
     Raises:
@@ -77,7 +77,7 @@ def parse_resource(task: str):
         logger.info(f"JSON to parse to determine resources: {json_content}")
         loaded_dict = json.loads(json_content)
 
-        return ContentResource(
+        return Context(
             provided_by=loaded_dict["provided_by"],
             content=loaded_dict["content"],
             link=loaded_dict["link"],

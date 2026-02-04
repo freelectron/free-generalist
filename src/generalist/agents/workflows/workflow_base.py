@@ -10,7 +10,7 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.graph.state import CompiledStateGraph
 
 from generalist.tools import ToolOutputType, get_tool_type
-from generalist.tools.data_model import ContentResource
+from generalist.tools.data_model import Context
 from clog import get_logger
 from generalist.tools.summarisers import construct_task_completion
 
@@ -35,7 +35,7 @@ class AgentState(TypedDict):
         step: Count of how many cycles (LLM + tool call) have been performed
     """
     task: str
-    context: list[ContentResource]
+    context: list[Context]
     step: int
     last_output: ExecuteToolOutput | None
 
@@ -55,7 +55,7 @@ class AgentWorkflow:
         name: str,
         agent_capability: str,
         llm: FunctionCallingLLM,
-        context: list[ContentResource],
+        context: list[Context],
         task: str,
         tools: list[FunctionTool] | None = None
     ):
@@ -67,7 +67,7 @@ class AgentWorkflow:
             agent_capability (str): short description of what the agent can and supposed to do.
             llm (FunctionCallingLLM): the brain
             task (str): task that needs to be performed
-            context (list[ContentResource]): summary of what has been achieved in the previous steps
+            context (list[Context]): summary of what has been achieved in the previous steps
             tools: list of tools that the llm can call
         """
         self.agent_name = name
@@ -112,7 +112,7 @@ class AgentWorkflow:
             link = fp.name
 
         state["context"].append(
-            ContentResource(
+            Context(
                 provided_by=state["last_output"].name,
                 link=link,
                 content=content,

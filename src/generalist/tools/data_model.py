@@ -10,7 +10,7 @@ class Task:
 
 
 @dataclass
-class ContentResource:
+class Context:
     """A unified dataclass for handling any type of resource that is being used for a task (web document, pdf file).
 
     Attributes:
@@ -20,9 +20,9 @@ class ContentResource:
         metadata: A dictionary containing additional information, such as search result data.
     """
     provided_by: str 
-    content: Optional[str]
-    link: str
-    metadata: dict[str, Any]
+    content: str
+    link: str | None = None
+    metadata: dict[str, Any] | None = None
 
 
 @dataclass

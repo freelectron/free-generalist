@@ -6,7 +6,7 @@ from langgraph.graph.state import CompiledStateGraph
 
 from generalist.agents.workflows.workflow_base import AgentWorkflow, AgentState
 from generalist.tools import ToolOutputType
-from generalist.tools.data_model import ContentResource
+from generalist.tools.data_model import Context
 from clog import get_logger
 
 
@@ -28,7 +28,7 @@ class UnstructuredTextProcessorWorkflow(AgentWorkflow):
         name: str,
         agent_capability: str,
         llm: FunctionCallingLLM,
-        context: list[ContentResource],
+        context: list[Context],
         task: str,
     ):
         """
@@ -38,7 +38,7 @@ class UnstructuredTextProcessorWorkflow(AgentWorkflow):
             name (str): agent name
             llm (FunctionCallingLLM): the brain
             task (str): task that needs to be performed
-            context (list[ContentResource]): summary of what has been achieved in the previous steps
+            context (list[Context]): summary of what has been achieved in the previous steps
         """
         super().__init__(
             name=name,
