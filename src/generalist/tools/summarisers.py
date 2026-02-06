@@ -26,12 +26,10 @@ def construct_short_answer(task: str, context: str) -> ShortAnswer:
         A ShortAnswer dataclass instance containing the answer and clarification.
     """
     prompt = f"""
-    You are presented with a list of information from one or several sources:
-    {context}
+    You are presented with a list of information from one or several sources: {context}
 
     Based **ONLY** on that information and without any additional assumptions from your side, evaluate whether the task specified was performed. 
-    TASK:
-    {task}
+    TASK: {task}
 
     Your answer should be in a valid JSON format like so:
     {{
@@ -102,6 +100,37 @@ def construct_task_completion(task: str, context: str, agent_capability: str) ->
         completed=True if data.get("done") in ["True", "true", "yes", "1"] else False,
         summary=data.get("summary", "did-not-parse"),
     )
+
+def summarise_findings(task: str, context: str) -> ShortAnswer:
+    """
+    Evaluates whether the task has been accomplished based on provided context.
+
+    The task does not require a final answer. It is considered completed
+    if the main steps or intent appear to be fulfilled based solely on
+    the given resources.
+    """
+
+    prompt = f"""
+    You are presented with a list of information describing work, actions, or outcomes of previous steps:
+    {context}
+
+    Based **ONLY** on the resources above and without any additional assumptions, provide a summary of information. 
+     
+    Describing what was achieved and found, you may be verbose, include the information that is needed for the task of {task}.
+    """
+
+    llm_response = llm.complete(prompt)
+    response_text = llm_response.text.strip()
+
+    logger.info(f"From `summarise_findings`:\n{response_text}.")
+
+
+    return ShortAnswer(
+        answered=False,
+        answer="this is just a summary of previous steps.",
+        clarification=response_text,
+    )
+
 
 def task_completed():
     """

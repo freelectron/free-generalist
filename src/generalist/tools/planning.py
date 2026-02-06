@@ -103,38 +103,51 @@ where
     return task_response.text
 
 
-def determine_capabilities(task: str, context: str = "") -> dict:
+def determine_capabilities(task: str, resource: str = "", context: str = "") -> dict:
     """
     Analyzes a task and automatically determines which step from the plan should be executed next
     based on the context, then selects the single most appropriate capability for that step.
 
     Returns:
-        AgentPlan: A dataclass containing a single sub-task with the chosen capability.
+        A dataclass containing a single sub-task with the chosen capability.
     """
     planning_prompt = f"""
-Your task is to choose the most appropriate intermediary step from the plan to execute, based on the context.
-It is important that you never combine two or more steps of the plan, just choose one. 
+Your task: Based on what's already been done (Previous Steps and Context), determine the next logical step from the Plan, then select the appropriate agent to execute it.
 
 Plan: {task}
+Previous output: {resource}
 Context: {context}
 
-Based on the step's task, choose one of the agents to perform it. Agents:
-- `{AgentDeepWebSearch.name}`: {AgentDeepWebSearch.capability}.
-- `{AgentUnstructuredDataProcessor.name}`: {AgentUnstructuredDataProcessor.capability}.
-- `{AgentCodeWriterExecutor.name}`: {AgentCodeWriterExecutor.capability}.
+Available agents:
+- `{AgentDeepWebSearch.name}`: {AgentDeepWebSearch.capability}
+- `{AgentUnstructuredDataProcessor.name}`: {AgentUnstructuredDataProcessor.capability}
+- `{AgentCodeWriterExecutor.name}`: {AgentCodeWriterExecutor.capability}
 
-Output format:
-- "activity": A clear and concise description of a SINGLE STEP to be performed using an agent's capability
-- "agent": One of the above mentioned capabilities that should be used to accomplish the activity
+Instructions:
+1. Review the Context to understand what has already been completed
+2. Identify the next step from the Plan that should be executed
+3. Choose ONE agent that best matches the requirements of that step
+4. Describe the activity with specific details from resources (file names, discovered information, etc.)
 
-ONLY RESPOND WITH A SINGLE JSON, in this exact JSON format:
+Example - When context has completed steps:
+Plan: ["Download video from URL", "Extract audio and transcribe", "Find Teal'c's response"]
+Context: "Downloaded video saved as /tmp/stargate_clip.mp4"
+Output: {{"activity": "Extract audio from /tmp/stargate_clip.mp4 and transcribe it to text", "agent": "{AgentCodeWriterExecutor.name}"}}
+
+Example - When file analysis is needed:
+Plan: ["Analyze CSV columns", "Plot sales data"]
+Context: "CSV file available at /home/user/sales.csv"
+Output: {{"activity": "Analyze /home/user/sales.csv to identify which columns represent sales data", "agent": "{AgentUnstructuredDataProcessor.name}"}}
+
+Output JSON format:
 {{
-  "activity": "...",
-  "agent": "..."
+  "activity": "Clear description of the single step to perform, including specific details from Context",
+  "agent": "The agent name that should execute this activity"
 }}
 
-**IMPORTANT**: Incorporate relevant details from the Context (discovered names, already done steps, files to use etc.) into your decision.
-**IMPORTANT**: You need to only call `{AgentUnstructuredDataProcessor.name}` when you have a relevant downloaded file to process in the context. 
+Rules:
+- Never combine multiple plan steps into one activity
+- Incorporate relevant details from Context and Previous steps (file paths, URLs, names, etc.) into the activity description
 """
     response = llm.complete(planning_prompt)
     response_text = response.text.strip()

@@ -8,7 +8,7 @@ from .workflows.workflow_web_search import DeepWebSearchWorkflow
 from ..models.core import llm
 from ..tools.summarisers import construct_short_answer
 from ..tools.text_processing import process_text
-from ..tools.data_model import Context, ShortAnswer
+from ..tools.data_model import Message, ShortAnswer
 from ..tools.media import download_audio
 from ..tools.media import transcribe_mp3
 from clog import get_logger
@@ -16,14 +16,14 @@ from clog import get_logger
 
 logger = get_logger(__name__)
 
-
-@dataclass
-class AgentOutput:
-    task: str
-    # Based on resources or file attachments, a list of short answers to the task
-    answers: Optional[list[ShortAnswer]] = None
-    # Produced resources
-    resources: Optional[list[Context]] = None
+#
+# @dataclass
+# class AgentOutput:
+#     task: str
+#     # Based on resources or file attachments, a list of short answers to the task
+#     answers: Optional[list[ShortAnswer]] = None
+#     # Produced resources
+#     resources: Optional[list[AgentOutput]] = None
 
 
 class BaseAgent:
@@ -48,7 +48,7 @@ class BaseAgent:
         # 'self.name' correctly accesses the class attribute from the instance
         return f"{self.__class__.__name__}(name='{self.name}', activity='{self.activity}')"
     
-    def run(self, *args, **kwargs) -> Context:
+    def run(self, *args, **kwargs) -> Message:
         """
         Execute the main logic of the agent.
         """
@@ -65,7 +65,7 @@ class AgentDeepWebSearch(BaseAgent):
         self.queries_per_question: int = 1
         self.links_per_query: int = 1
 
-    def run(self) -> Context:
+    def run(self) -> Message:
         agent_workflow = DeepWebSearchWorkflow(
             name=self.name,
             agent_capability=self.capability,
@@ -77,9 +77,9 @@ class AgentDeepWebSearch(BaseAgent):
         final_state = agent_workflow.run()
         logger.info(f" After running {AgentDeepWebSearch.name}, the final state is:\n{final_state}")
 
-        # last output will be a content resource with the downloaded search results
+        # last output will be a content resource with the downloaded search results (e.g., one or multiple web pages)
         last_resource = final_state["context"][-1]
-        return Context(
+        return Message(
             provided_by=self.name,
             content=last_resource.content,
             link=last_resource.link,
@@ -89,20 +89,26 @@ class AgentDeepWebSearch(BaseAgent):
 class AgentUnstructuredDataProcessor(BaseAgent):
     """Capability for processing unstructured text."""
     name = "unstructured_data_processing"
-    capability = "analyzes or extracts information from the downloaded resources/text"
+    capability = "analyzes or extracts information from the previously downloaded resources/text"
 
-    def run(self, resources: list[Context]) -> Context:
+    def run(self, resources: list[Message]) -> Message:
         """
         """
         resource_contents = []
         for resource in resources:
             # if local link, load the contents
             content = resource.content
-            if not resource.link.startswith("http") or resource.link.startswith("www"):
-                with open(resource.link, "rt") as f:
-                    content = f.read()
+            if resource.link:
+                if not resource.link.startswith("http") or resource.link.startswith("www"):
+                    with open(resource.link, "rt") as f:
+                        content = f.read()
+                else:
+                    logger.warning(f"Cannot read from non-local resource {resource}")
             else:
-                logger.warning(f"Cannot read from non-local resource {resource}")
+                return Message(
+                    provided_by=self.name,
+                    content=f"Query: {self.activity} \n Answers: search was not performed. Step by step instructions.",
+                )
             resource_contents.append(content)
 
         if not resource_contents:
@@ -112,12 +118,11 @@ class AgentUnstructuredDataProcessor(BaseAgent):
         text  = "\n".join(resource_contents)
         answers = process_text(self.activity, text)
 
-        # TODO: ideally, we would want something like "map-reduce" on answers
-        short_answer = construct_short_answer(self.activity, str(answers))
+        print(answers)
 
-        return Context(
+        return Message(
             provided_by=self.name,
-            content=str(short_answer),
+            content=f"Query: {self.activity} \n Answers: {answers}",
         )
 
 
@@ -126,7 +131,7 @@ class AgentCodeWriterExecutor(BaseAgent):
     name = "code_writing_execution"
     capability = "writes and runs code for analysing files (e.g., csv, parquet) or performing math/statistical operations"
 
-    def run(self, resources:list[Context]) -> Context:
+    def run(self, resources:list[Message]) -> Message:
         agent_workflow = CodeWriterExecutorWorkflow(
             name=self.name,
             agent_capability=self.capability,
@@ -137,11 +142,9 @@ class AgentCodeWriterExecutor(BaseAgent):
         final_state = agent_workflow.run()
         logger.info(f" After running the agent workflow :\n{final_state}")
 
-        short_answers = [construct_short_answer(self.activity, str(final_state))]
-
-        return Context(
+        return Message(
             provided_by=self.name,
-            content=str(short_answers),
+            content=f"Query: {self.activity} \n Answers: {str(final_state)}",
         )
 
 

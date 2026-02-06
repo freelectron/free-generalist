@@ -2,7 +2,7 @@ import json
 
 from langchain_text_splitters import CharacterTextSplitter
 
-from .data_model import Context
+from .data_model import Message
 from ..models.core import llm
 from clog import get_logger
 
@@ -77,7 +77,7 @@ def parse_resource(task: str):
         logger.info(f"JSON to parse to determine resources: {json_content}")
         loaded_dict = json.loads(json_content)
 
-        return Context(
+        return Message(
             provided_by=loaded_dict["provided_by"],
             content=loaded_dict["content"],
             link=loaded_dict["link"],
@@ -140,6 +140,7 @@ def process_text(task: str, text: str, chunk_size: int = 4000, chunk_overlap: in
         separator=" "  
     )
     chunks = text_splitter.split_text(text)
+
 
     responses = []
     for chunk in chunks:

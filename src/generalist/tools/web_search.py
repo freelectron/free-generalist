@@ -8,7 +8,7 @@ from ddgs import DDGS
 
 from browser import BRAVE_SEARCH_SESSION
 from browser.search.web import BraveBrowser
-from ..tools.data_model import Context, WebSearchResult
+from ..tools.data_model import Message, WebSearchResult
 from ..models.core import llm
 from clog import get_logger
 
@@ -178,7 +178,7 @@ def _brave_search(query: str, max_results: int, brave_search_session: Optional[B
     return found_resources
 
 
-def _drop_non_unique_link(resources: list[Context | WebSearchResult]) -> list[Context | WebSearchResult]:
+def _drop_non_unique_link(resources: list[Message | WebSearchResult]) -> list[Message | WebSearchResult]:
     """Removes duplicate WebResource objects based on their 'link' attribute.
 
     Args:

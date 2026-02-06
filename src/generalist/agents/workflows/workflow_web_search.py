@@ -7,7 +7,7 @@ from langgraph.graph.state import CompiledStateGraph
 
 from generalist.agents.workflows.workflow_base import AgentState, AgentWorkflow
 from generalist.tools import ToolOutputType, web_search_tool
-from generalist.tools.data_model import Context
+from generalist.tools.data_model import Message
 from clog import get_logger
 
 
@@ -29,7 +29,7 @@ class DeepWebSearchWorkflow(AgentWorkflow):
         name: str,
         agent_capability: str,
         llm: FunctionCallingLLM,
-        context: list[Context],
+        context: list[Message],
         task: str,
     ):
         """
@@ -39,7 +39,7 @@ class DeepWebSearchWorkflow(AgentWorkflow):
             name (str): agent name
             llm (FunctionCallingLLM): the brain
             task (str): task that needs to be performed
-            context (list[Context]): summary of what has been achieved in the previous steps
+            context (list[Message]): summary of what has been achieved in the previous steps
         """
         super().__init__(
             name=name,
@@ -64,7 +64,7 @@ class DeepWebSearchWorkflow(AgentWorkflow):
             link = fp.name
 
         state["context"].append(
-            Context(
+            Message(
                 provided_by=state["last_output"].name,
                 link=link,
                 content=content,

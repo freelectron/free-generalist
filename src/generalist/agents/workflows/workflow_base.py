@@ -10,7 +10,7 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.graph.state import CompiledStateGraph
 
 from generalist.tools import ToolOutputType, get_tool_type
-from generalist.tools.data_model import Context
+from generalist.tools.data_model import Message
 from clog import get_logger
 from generalist.tools.summarisers import construct_task_completion
 
@@ -35,7 +35,7 @@ class AgentState(TypedDict):
         step: Count of how many cycles (LLM + tool call) have been performed
     """
     task: str
-    context: list[Context]
+    context: list[Message]
     step: int
     last_output: ExecuteToolOutput | None
 
@@ -55,7 +55,7 @@ class AgentWorkflow:
         name: str,
         agent_capability: str,
         llm: FunctionCallingLLM,
-        context: list[Context],
+        context: list[Message],
         task: str,
         tools: list[FunctionTool] | None = None
     ):
@@ -67,7 +67,7 @@ class AgentWorkflow:
             agent_capability (str): short description of what the agent can and supposed to do.
             llm (FunctionCallingLLM): the brain
             task (str): task that needs to be performed
-            context (list[Context]): summary of what has been achieved in the previous steps
+            context (list[Message]): summary of what has been achieved in the previous steps
             tools: list of tools that the llm can call
         """
         self.agent_name = name
@@ -92,6 +92,8 @@ class AgentWorkflow:
         # tool that has just been called
         tool_name = response.sources[0].tool_name
 
+        # TODO: CHECK FOR ERRORS!
+
         state["last_output"] = ExecuteToolOutput(name=tool_name, type=get_tool_type(tool_name), output=response.response)
         state["step"] += 1
 
@@ -112,7 +114,7 @@ class AgentWorkflow:
             link = fp.name
 
         state["context"].append(
-            Context(
+            Message(
                 provided_by=state["last_output"].name,
                 link=link,
                 content=content,
