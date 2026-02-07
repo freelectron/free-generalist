@@ -141,7 +141,6 @@ def process_text(task: str, text: str, chunk_size: int = 4000, chunk_overlap: in
     )
     chunks = text_splitter.split_text(text)
 
-
     responses = []
     for chunk in chunks:
         chunk_response = _process_chunk(task, chunk)

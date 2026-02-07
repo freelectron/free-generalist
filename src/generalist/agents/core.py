@@ -16,15 +16,6 @@ from clog import get_logger
 
 logger = get_logger(__name__)
 
-#
-# @dataclass
-# class AgentOutput:
-#     task: str
-#     # Based on resources or file attachments, a list of short answers to the task
-#     answers: Optional[list[ShortAnswer]] = None
-#     # Produced resources
-#     resources: Optional[list[AgentOutput]] = None
-
 
 class BaseAgent:
     """Base class for all agent capabilities."""
@@ -86,14 +77,13 @@ class AgentDeepWebSearch(BaseAgent):
             metadata=last_resource.metadata,
         )
 
+
 class AgentUnstructuredDataProcessor(BaseAgent):
     """Capability for processing unstructured text."""
     name = "unstructured_data_processing"
     capability = "analyzes or extracts information from the previously downloaded resources/text"
 
     def run(self, resources: list[Message]) -> Message:
-        """
-        """
         resource_contents = []
         for resource in resources:
             # if local link, load the contents
@@ -103,11 +93,12 @@ class AgentUnstructuredDataProcessor(BaseAgent):
                     with open(resource.link, "rt") as f:
                         content = f.read()
                 else:
-                    logger.warning(f"Cannot read from non-local resource {resource}")
+                    logger.error(f"Cannot read from non-local resource {resource}")
             else:
+                logger.error(f"Link resources is empty {resource}")
                 return Message(
                     provided_by=self.name,
-                    content=f"Query: {self.activity} \n Answers: search was not performed. Step by step instructions.",
+                    content=f"Query: {self.activity} \n Answers: no file was given to analyse.",
                 )
             resource_contents.append(content)
 
@@ -118,8 +109,6 @@ class AgentUnstructuredDataProcessor(BaseAgent):
         text  = "\n".join(resource_contents)
         answers = process_text(self.activity, text)
 
-        print(answers)
-
         return Message(
             provided_by=self.name,
             content=f"Query: {self.activity} \n Answers: {answers}",
@@ -129,7 +118,7 @@ class AgentUnstructuredDataProcessor(BaseAgent):
 class AgentCodeWriterExecutor(BaseAgent):
     """Capability for writing and executing python code"""
     name = "code_writing_execution"
-    capability = "writes and runs code for analysing files (e.g., csv, parquet) or performing math/statistical operations"
+    capability = "can write and execute code for analysing files (e.g., csv, parquet) or performing math operations"
 
     def run(self, resources:list[Message]) -> Message:
         agent_workflow = CodeWriterExecutorWorkflow(

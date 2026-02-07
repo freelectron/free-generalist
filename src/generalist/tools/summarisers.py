@@ -53,6 +53,10 @@ def construct_short_answer(task: str, context: str) -> ShortAnswer:
 
     logger.info(f"Short answer:\n{response_text}.")
     data = json.loads(response_text)
+    # FIXME: either make parsing more robust or do manually
+    if isinstance(data["answered"], bool):
+        data["answered"] = str(data["answered"])
+
     return ShortAnswer(
             answered=True if data.get("answered") in ["True", "true", "yes", "1"] else False,
             answer=data.get("answer", "did-not-parse"),
@@ -95,6 +99,9 @@ def construct_task_completion(task: str, context: str, agent_capability: str) ->
     logger.info(f"Task completion:\n{response_text}.")
 
     data = json.loads(response_text)
+    # FIXME: either make parsing more robust or do manually
+    if isinstance(data["done"], bool):
+        data["done"] = str(data["done"])
 
     return AgentRunSummary(
         completed=True if data.get("done") in ["True", "true", "yes", "1"] else False,
@@ -116,7 +123,7 @@ def summarise_findings(task: str, context: str) -> ShortAnswer:
 
     Based **ONLY** on the resources above and without any additional assumptions, provide a summary of information. 
      
-    Describing what was achieved and found, you may be verbose, include the information that is needed for the task of {task}.
+    Extract (copy-paste) the information that might be needed for the task: {task}.
     """
 
     llm_response = llm.complete(prompt)

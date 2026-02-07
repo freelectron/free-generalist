@@ -1,6 +1,5 @@
 import tempfile
 from dataclasses import dataclass
-from typing import Any
 
 import mlflow
 from llama_index.core.llms.function_calling import FunctionCallingLLM
@@ -92,7 +91,10 @@ class AgentWorkflow:
         # tool that has just been called
         tool_name = response.sources[0].tool_name
 
-        # TODO: CHECK FOR ERRORS!
+        # Fixme: do more robust check for errors, retry mechanism?
+        if "Encountered error" in response.response:
+            prompt = prompt + "\n" + f"Note: previous error was: {response.response}"
+            response = self.llm.predict_and_call(user_msg=prompt, tools=self.tools)
 
         state["last_output"] = ExecuteToolOutput(name=tool_name, type=get_tool_type(tool_name), output=response.response)
         state["step"] += 1

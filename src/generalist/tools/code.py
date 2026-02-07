@@ -104,9 +104,9 @@ Context: {context}
 File: {file_path if file_path else "None"}
 
 Requirements:
-- Generate complete, executable Python code
-- Use standard Python libraries and/or common packages (pandas, numpy, matplotlib, nltk, beautifulsoup4, etc.)
-- Read the file at the given path and perform the requested task
+- Generate complete and executable Python code, do not assume or make up path files that were not given in this prompt 
+- If needed, use standard Python libraries and/or common packages (pandas, numpy, matplotlib, nltk, beautifulsoup4, etc.)
+- If needed, read the file at the given path and perform the requested task
 - Handle potential errors gracefully
 
 Return ONLY the Python code, without any additional explanation or markdown formatting."""
@@ -145,10 +145,6 @@ def execute_code(file_path: str) -> str:
     if not Path(file_path).exists():
         logger.error(f"File is not found: {file_path}")
         return f"Error: File not found: {file_path}"
-
-    if not file_path.endswith('.py'):
-        logger.error(f"File must be a Python file (.py): {file_path}")
-        return f"Error: File must be a Python file (.py): {file_path}"
 
     try:
         result = subprocess.run(

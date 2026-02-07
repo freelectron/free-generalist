@@ -56,8 +56,8 @@ class CodeWriterExecutorWorkflow(AgentWorkflow):
             # write the output to a tempfile
             fp = tempfile.NamedTemporaryFile(delete=False, delete_on_close=False, mode="w", encoding="utf-8")
             fp.write(state["last_output"].output); fp.close()
-            content = (f"Output of {state["last_output"].name} run is stored in {fp.name}."
-                       f"EXECUTE THIS FILE NEXT TO GET THE RESULT.")
+            content = (f"Output of {state["last_output"].name} for an intermediary task (task: {state['task']}) is stored in {fp.name}."
+                       f"EXECUTE THIS FILE IN THE NEXT STEP TO GET THE RESULT.")
             link = fp.name
 
         # TODO: find how to adjust the code so that I can process the output of each tool code differently

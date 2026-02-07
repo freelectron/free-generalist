@@ -1,7 +1,6 @@
 import json
 
 from ..agents.core import AgentDeepWebSearch, AgentUnstructuredDataProcessor, AgentPlan, AgentCodeWriterExecutor
-from .data_model import Task
 from ..models.core import llm
 from clog import get_logger
 
@@ -75,14 +74,14 @@ Example (ALWAYS **JSON**):
 
 Another Example:
 {{
-  "objective": "Examine the video and extract the dialogue by Teal'c in response to the question 'Isn't that hot?'",
+  "objective": "Examine the Youtube video and extract the dialogue by Teal'c in response to the question 'Isn't that hot?'",
   "plan": [
     "Download the video from the provided URL",
     "Extract the audio and transcribe it to text",
     "Locate the part where the question is asked and Teal'c responds"
   ]
 }}
-Note, that there is no "resource" field generated, because the video URL/URI was not given.
+Note, that there is no "resource" field generated, because the video URL/URI was not given (mention of a website is not a link!).
 
 where
   "objective" 's value in the json is a clear, one-sentence summary of the end goal,
@@ -96,7 +95,7 @@ where
   ]
   **IMPORTANT**: you should only include the minimum number of steps to accomplish the task, do not include verification steps.
   **IMPORTANT**: do not include any json formatting directives, output plain json string.
-  **IMPORTANT**: only include the resource that are URLs or URIs. 
+  **IMPORTANT**: only include the resource that are already in URLs or URIs format (just mentioning website does not mean you need to create a resource. 
 """
     task_response = llm.complete(prompt)
 
