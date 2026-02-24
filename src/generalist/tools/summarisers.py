@@ -58,10 +58,10 @@ def construct_short_answer(task: str, context: str) -> ShortAnswer:
         data["answered"] = str(data["answered"])
 
     return ShortAnswer(
-            answered=True if data.get("answered") in ["True", "true", "yes", "1"] else False,
-            answer=data.get("answer", "did-not-parse"),
-            clarification=data.get("clarification", "did-not-parse.")
-        )
+        answered=True if data.get("answered") in ["True", "true", "yes", "1"] else False,
+        answer=data.get("answer", "did-not-parse"),
+        clarification=data.get("clarification", "did-not-parse.")
+    )
 
 
 def construct_task_completion(task: str, context: str, agent_capability: str) -> AgentRunSummary:
@@ -74,17 +74,22 @@ def construct_task_completion(task: str, context: str, agent_capability: str) ->
     """
 
     prompt = f"""
-    You are an agent that can ONLY {agent_capability} !
-    You are presented with a list of information describing work, actions, or outcomes of previous steps:
+    You are an agent that can ONLY {agent_capability}. Thus your capabilities are: {agent_capability}. 
+    You are presented with a list of information describing work, actions, or outcomes of the previous steps:
     {context}
 
-    Based **ONLY** on the resources above and without any additional assumptions, determine whether the agent should proceed to the next step:
-    {task}
+    Based **ONLY** on the resources above and without any additional assumptions, determine whether the agent has accomplished its task: {task}
+    And whether it should proceed to the next step.
     
     Your response MUST be valid JSON in the following format:
     {{
         "done": <write only "true" or "false">,
         "summary": "<a short phrase describing what was achieved, and if agent can do something else with its available capabilities.>"
+    }}
+    Explanation:
+    {{
+        "done": <whether the agent has done everything it could based on its capabilities>,
+        "summary": "<a short phrase describing what was achieved and how the task was answered, and if agent can do something else with its available capabilities.>"
     }}
     """
 

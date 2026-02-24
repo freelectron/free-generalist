@@ -66,7 +66,7 @@ class AgentDeepWebSearch(BaseAgent):
         )
 
         final_state = agent_workflow.run()
-        logger.info(f" After running {AgentDeepWebSearch.name}, the final state is:\n{final_state}")
+        logger.info(f" After running {self.name}, the final state's context is:\n{final_state["context"]}")
 
         # last output will be a content resource with the downloaded search results (e.g., one or multiple web pages)
         last_resource = final_state["context"][-1]
@@ -108,6 +108,8 @@ class AgentUnstructuredDataProcessor(BaseAgent):
         # Join contents all together to give to a chunk splitter
         text  = "\n".join(resource_contents)
         answers = process_text(self.activity, text)
+
+        logger.info(f" After running {self.name}, the final state answers are :\n{answers}")
 
         return Message(
             provided_by=self.name,
@@ -153,7 +155,7 @@ class AgentPlan:
         """
         Convert JSON response into a CapabilityPlan with proper capability objects.
         """
-        cap_name = json_data["agent"]
+        cap_name = json_data["tool"]
         activity = json_data["activity"]
 
         if cap_name not in cls.capability_map:

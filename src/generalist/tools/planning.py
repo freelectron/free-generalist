@@ -57,42 +57,48 @@ def determine_next_step(task: str, resource: str = "", context: str = "") -> dic
         A dataclass containing a single sub-task with the chosen capability.
     """
     planning_prompt = f"""
-Your task: Based on what's already been done (Previous Steps and Context), determine the next logical step from, then select the appropriate agent to execute it.
+You are a planner. Based on what's already been done (Last output and Context), determine the NEXT SINGLE LOGICAL STEP to execute and select EXACTLY ONE tool to run it.
 
 Task: {task}
 Last output: {resource}
 Context: {context}
 
-Available agents:
+Available tools:
 - `{AgentDeepWebSearch.name}`: {AgentDeepWebSearch.capability}
 - `{AgentUnstructuredDataProcessor.name}`: {AgentUnstructuredDataProcessor.capability}
 - `{AgentCodeWriterExecutor.name}`: {AgentCodeWriterExecutor.capability}
 
-Instructions:
-1. Review the Context to understand what has already been completed
-2. Identify the next step that should be executed
-3. Choose ONE agent that best matches the requirements of that step
-4. Describe the activity with specific details from resources (file names, discovered information, etc.)
+CRITICAL RULES - YOU MUST FOLLOW THESE:
+1. Output EXACTLY ONE activity that maps to EXACTLY ONE tool call
+    **Break Down Tasks**: Always break down complex tasks into their smallest possible atomic steps.
+    **Single Focus**: Ensure each step focuses on retrieving or performing exactly one piece of information or task at a time.
+2. The activity description MUST contain ONLY ONE ACTION VERB (e.g., "search", "extract", "analyze", "calculate")
+3. NEVER use "AND" in your activity description - this indicates multiple steps
+4. NEVER use multiple verbs like "search and extract", "find and determine", "download and process"
+5. If the task requires multiple steps, output ONLY THE VERY NEXT IMMEDIATE STEP needed right now
+6. Each step should be atomic and indivisible - it should do exactly one thing
 
-Example - When context has completed steps:
-Task: ["Find Teal'c's response form a youtude video"]
-Context: "Downloaded video saved as /tmp/stargate_clip.mp4"
-Output: {{"activity": "Extract audio from /tmp/stargate_clip.mp4 and transcribe it to text", "agent": "{AgentCodeWriterExecutor.name}"}}
+BAD EXAMPLES:
+ - "Search for information AND extract the relevant details" - TWO steps (search, extract)
+ - "Download the file and process its contents" - TWO steps (download, process)
 
-Example - When file analysis is needed:
-Plan: ["Plot the sales data provided"]
-Context: "CSV file available at /home/user/sales.csv"
-Output: {{"activity": "Analyze /home/user/sales.csv to identify which columns represent sales data", "agent": "{AgentUnstructuredDataProcessor.name}"}}
+GOOD EXAMPLES:
+✓ "Search for Teal'c's YouTube video about Stargate SG-1"
+✓ "Extract audio from /tmp/stargate_clip.mp4"
+✓ "Read and parse the CSV file at /home/user/sales.csv"
+✓ "Calculate the sum of values in the 'sales' column"
 
 Output JSON format:
 {{
-  "activity": "Clear description of the single step to perform, including specific details from Context",
-  "agent": "The agent name that should execute this activity"
+  "activity": "Single atomic action with one verb, including specific details from Context",
+  "tool": "The tool name that should execute this activity"
 }}
 
-Rules:
-- Never combine multiple plan steps into one activity
-- Incorporate relevant details from Context and Previous steps (file paths, URLs, names, etc.) into the activity description
+REMEMBER:
+- ONE activity = ONE verb = ONE tool call
+- Break complex tasks into the smallest possible atomic steps
+- If you're tempted to use "and", stop - you're doing multiple steps
+- Output only the IMMEDIATE next step, not a sequence of steps
 """
     response = llm.complete(planning_prompt)
     response_text = response.text.strip()
