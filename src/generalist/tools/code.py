@@ -123,7 +123,7 @@ Return ONLY the Python code, without any additional explanation or markdown form
             code = code[:-3]
         code = code.strip()
 
-        logger.info(f"Generated code for task: {task[:50]}...")
+        logger.info(f"Generated code for task {task}: {code}")
         return code
 
     except Exception as e:

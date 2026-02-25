@@ -136,7 +136,6 @@ def summarise_findings(task: str, context: str) -> ShortAnswer:
 
     logger.info(f"From `summarise_findings`:\n{response_text}.")
 
-
     return ShortAnswer(
         answered=False,
         answer="this is just a summary of previous steps.",

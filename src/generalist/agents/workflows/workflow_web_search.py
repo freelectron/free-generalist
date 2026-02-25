@@ -53,11 +53,11 @@ class DeepWebSearchWorkflow(AgentWorkflow):
         """
         """
         link = ""
-        content = state["last_output"].output
-        if state["last_output"].type == ToolOutputType.FILE:
+        content = state["tool_call_result"].output
+        if state["tool_call_result"].type == ToolOutputType.FILE:
             # write the output to a tempfile
             fp = tempfile.NamedTemporaryFile(delete=False, delete_on_close=False, mode="w", encoding="utf-8")
-            fp.write(state["last_output"].output); fp.close()
+            fp.write(state["tool_call_result"].output); fp.close()
             content = (f"Web search SUCCESSFUL for task: {state['task']}. "
                        f"The downloaded info is stored in {fp.name}. "
                        f"PROCEED TO UNSTRUCTURED TEXT PROCESSING!")
@@ -65,7 +65,7 @@ class DeepWebSearchWorkflow(AgentWorkflow):
 
         state["context"].append(
             Message(
-                provided_by=state["last_output"].name,
+                provided_by=state["tool_call_result"].name,
                 link=link,
                 content=content,
                 metadata={},

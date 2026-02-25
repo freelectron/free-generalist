@@ -50,23 +50,23 @@ class CodeWriterExecutorWorkflow(AgentWorkflow):
     def process_tool_output(self, state: AgentState):
         """
         """
-        link = state["last_output"].output
-        content = state["last_output"].output
-        if state["last_output"].type == ToolOutputType.FILE:
+        link = state["tool_call_result"].output
+        content = state["tool_call_result"].output
+        if state["tool_call_result"].type == ToolOutputType.FILE:
             # write the output to a tempfile
             fp = tempfile.NamedTemporaryFile(delete=False, delete_on_close=False, mode="w", encoding="utf-8")
-            fp.write(state["last_output"].output); fp.close()
-            content = (f"Output of {state["last_output"].name} for an intermediary task (task: {state['task']}) is stored in {fp.name}."
+            fp.write(state["tool_call_result"].output); fp.close()
+            content = (f"Output of {state["tool_call_result"].name} for an intermediary task (task: {state['task']}) is stored in {fp.name}."
                        f"EXECUTE THIS FILE IN THE NEXT STEP TO GET THE RESULT.")
             link = fp.name
 
         # TODO: find how to adjust the code so that I can process the output of each tool code differently
-        if state["last_output"].name == execute_code_tool.metadata.name:
+        if state["tool_call_result"].name == execute_code_tool.metadata.name:
            content = f"Executed code for task: {state['task']}.\nOUTPUT:" + content
 
         state["context"].append(
             Message(
-                provided_by=state["last_output"].name,
+                provided_by=state["tool_call_result"].name,
                 link=link,
                 content=content,
                 metadata={},
