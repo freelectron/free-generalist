@@ -1,7 +1,10 @@
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 
 from browser import ChromeBrowser
 from clog import get_logger
+
+
+logger = get_logger(__name__)
 
 
 class BrowserWebSearch:
@@ -21,6 +24,44 @@ class BraveBrowser(BrowserWebSearch):
 
     def __init__(self, browser: ChromeBrowser, session_id: str):
         super().__init__(browser=browser, session_id=session_id)
+
+    @staticmethod
+    def parse_out_search_result(result: Tag):
+        title = "N/A"
+        link = "N/A"
+        description = "N/A"
+
+        # assumption: the link and title are within the same <a> tag
+        link_element = result.find('a', href=True)
+        if link_element and link_element.has_attr('href'):
+            link = link_element['href']
+
+            title_element = link_element.find('div', class_='title')
+            if title_element:
+                title = title_element.get_text(strip=True)
+
+        description_element = result.find('div', class_='content')
+        if description_element:
+            description = description_element.get_text(strip=True)
+
+        return {
+            "title": title,
+            "link": link,
+            "description": description,
+        }
+
+    @staticmethod
+    def parse_out_llm_result(result: Tag):
+        for button in result.find_all('button', class_='inline-refs'):
+            button.decompose()
+
+        final_text = result.get_text(separator=' ', strip=True)
+
+        return {
+            "title": "Brave LLM",
+            "description": final_text,
+        }
+
 
     @staticmethod
     def  parse_search_results(html_content: str, n: int, query: str | None = None) -> list[dict]:
@@ -43,35 +84,17 @@ class BraveBrowser(BrowserWebSearch):
         # We exclude snippets that are 'standalone' (like Videos, Infobox)
         # and focus on those with a 'data-pos' attribute, which marks regular web results.
         result_containers = soup.find_all('div', class_='snippet', attrs={'data-pos': True})
-        # LLM summary
-        result_container_llm_summary = soup.find_all('div', class_='chatllm-content')
-        result_containers.extend(result_container_llm_summary)
 
         parsed_results = []
         for result in result_containers[:n]:
-            title = "N/A"
-            link = "N/A"
-            description = "N/A"
+            if result:
+                parsed_results.append(BraveBrowser.parse_out_search_result(result))
+            else:
+                logger.info(f"No results")
 
-            # assumption: the link and title are within the same <a> tag
-            link_element = result.find('a', href=True)
-            if link_element and link_element.has_attr('href'):
-                link = link_element['href']
-
-                title_element = link_element.find('div', class_='title')
-                if title_element:
-                    title = title_element.get_text(strip=True)
-
-            description_element = result.find('div', class_='content')
-            if description_element:
-                description = description_element.get_text(strip=True)
-
-            parsed_results.append({
-                "title": title,
-                "link": link,
-                "description": description,
-                "query": query,
-            })
+        # Add LLM summary
+        result_container_llm_summary = soup.find_all('div', class_='chatllm-content')
+        parsed_results.append(BraveBrowser.parse_out_llm_result(result_container_llm_summary[0]))
 
         return parsed_results
 
@@ -93,7 +116,7 @@ class BraveBrowser(BrowserWebSearch):
             self.browser.wait(0.5)
             self.browser.driver.get(search_url)
 
-        self.browser.wait(2)
+        self.browser.wait(10)
 
         return self.browser.driver.page_source
 

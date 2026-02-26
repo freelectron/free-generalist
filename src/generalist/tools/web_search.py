@@ -149,7 +149,6 @@ def web_search(question: str) -> list[dict[str, str|WebSearchResult]]:
     Returns:
         A list of WebResource objects, with their 'content' field populated with the content of webpage.
     """
-
     # Number of queries to generate per question
     queries_per_question = 1
     # Number of web links to retrieve for each search query.
@@ -162,7 +161,6 @@ def web_search(question: str) -> list[dict[str, str|WebSearchResult]]:
     for query in candidate_queries:
         raw_search_results_for_query = BRAVE_SEARCH_SESSION.search(query, links_per_query)
         search_results_for_query = parse_web_browser_search_results(raw_search_results_for_query)
-
         all_sources.extend(search_results_for_query)
 
     unique_search_results = _drop_non_unique_link(all_sources)
@@ -170,7 +168,12 @@ def web_search(question: str) -> list[dict[str, str|WebSearchResult]]:
 
     final_resources = []
     for search in unique_search_results:
-        content = _download_content(search)
+        # This is search result from LLM query most likely
+        if search.link == NOT_FOUND_LITERAL:
+            content = search.metadata["web_page_summary"]
+        else:
+            # Normal web link
+            content = _download_content(search)
         if content:
             populated_resource = {
                 "search_result": search,

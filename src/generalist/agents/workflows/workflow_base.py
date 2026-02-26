@@ -11,7 +11,8 @@ from langgraph.graph.state import CompiledStateGraph
 from generalist.tools import ToolOutputType, get_tool_type
 from generalist.tools.data_model import Message, ShortAnswer
 from clog import get_logger
-from generalist.tools.summarisers import construct_task_completion, summarise_findings
+from generalist.tools.summarisers import construct_task_completion
+
 
 MAX_STEPS = 5
 logger = get_logger(__name__)
