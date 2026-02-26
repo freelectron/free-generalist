@@ -34,13 +34,20 @@ class AgentState(TypedDict):
         plan: Current plan or reasoning about what to do next
         reflection: Reflection on the last tool output and next steps
     """
+    # Description of what us asked from an agent
     task: str
-    context: list[Message]
-    answers: ShortAnswer | None
-    tool_call_result: ExecuteToolOutput | None
-    step: int
+    # What needs to be executed next
     plan: str | None
+    # Number of iterations through the graph
+    step: int
+    # Output in the specific format from tool calling LLM
+    tool_call_result: ExecuteToolOutput | None
+    # Summary of what has been done in the current iteration
     reflection: str | None
+    # All messages that were produced
+    context: list[Message]
+    # Summary of the progress to see if the task has been achieved
+    answers: ShortAnswer | None
 
 
 class AgentWorkflow:
@@ -81,11 +88,7 @@ class AgentWorkflow:
 
     def plan_action(self, state: AgentState):
         """Planning node: Reason about what to do next before executing tools."""
-
-        # Format context
         context_str = state["context"]
-
-        # Format available tools
         tools_str = "\n".join([f"- {tool.metadata.name}: {tool.metadata.description}" for tool in self.tools])
 
         prompt = f"""
@@ -111,14 +114,12 @@ class AgentWorkflow:
 
         response = self.llm.complete(prompt)
         state["plan"] = response.text.strip()
-        logger.info(f"Plan: {state['plan']}")
+        logger.info(f"[{self.agent_name}] Step_{state['step']}. Plan: {state['plan']}")
 
         return state
 
     def execute_tool(self, state: AgentState):
         """Execute a tool based on the current plan."""
-
-        # Format context
         context_str = state["context"]
 
         prompt = f"""
@@ -143,9 +144,10 @@ class AgentWorkflow:
                 prompt = prompt + "\n\nIMPORTANT: You MUST call one of the available tools. Review the tools and select the most appropriate one."
                 response = self.llm.predict_and_call(user_msg=prompt, tools=self.tools)
             else:
+                logger.error(f"Encountered error in when running {self.agent_name}: {e}")
                 raise  # re-raise if it's a different ValueError
 
-        # tool that has just been called
+        # Tool that has just been called
         tool_name = response.sources[0].tool_name
 
         state["tool_call_result"] = ExecuteToolOutput(name=tool_name, type=get_tool_type(tool_name), output=response.response)
@@ -154,19 +156,22 @@ class AgentWorkflow:
         return state
 
     def process_tool_output(self, state: AgentState):
-        """Process the tool output and add it to context."""
+        """
+        Process the tool output by either:
+         - writing the output of the call to a file
+         - or putting the output directly into the context
+        """
         link = ""
         content = state["tool_call_result"].output
         # Note: this is an attempt to keep the context for an agent small
         if state["tool_call_result"].type == ToolOutputType.FILE:
-            # write the output to a tempfile
             fp = tempfile.NamedTemporaryFile(delete=False, delete_on_close=False, mode="w", encoding="utf-8")
-            fp.write(state["tool_call_result"].output); fp.close()
-            logger.info(f"Wrote {state["tool_call_result"].name} to a file {fp.name}.Output:\n{state["tool_call_result"].output}")
-            content = f"Output of {state["tool_call_result"].name} tool is stored in {fp.name}."
+            fp.write(state["tool_call_result"].output)
             link = fp.name
+            fp.close()
+            logger.info(f"Wrote {state["tool_call_result"].name} to a file {link}.Output:\n{state["tool_call_result"].output}")
+            content = f"Output of {state["tool_call_result"].name} tool is stored in {link}."
 
-        # Add to context
         state["context"].append(
             Message(
                 provided_by=state["tool_call_result"].name,
@@ -180,7 +185,6 @@ class AgentWorkflow:
 
     def reflect(self, state: AgentState):
         """Reflection node: Analyze the tool output and determine next steps."""
-
         context_str = state["context"]
 
         prompt = f"""
@@ -201,10 +205,7 @@ class AgentWorkflow:
 
         response = self.llm.complete(prompt)
         state["reflection"] = response.text.strip()
-        logger.info(f"Reflection: {state['reflection']}")
-
-        # Update answers summary based on reflection
-        state["answers"] = summarise_findings(task=state["task"], context=context_str)
+        logger.info(f"[{self.agent_name}] Step_{state['step']}. Reflection: {state['reflection']}")
 
         return state
 
@@ -224,7 +225,6 @@ class AgentWorkflow:
         """Builds and compiles the workflow graph."""
         workflow = StateGraph(state_schema=AgentState)
 
-        # Add nodes for the workflow
         workflow.add_node("plan_action", self.plan_action)
         workflow.add_node("execute_tool", self.execute_tool)
         workflow.add_node("process_tool_output", self.process_tool_output)

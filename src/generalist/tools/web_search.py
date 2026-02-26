@@ -4,7 +4,6 @@ import requests
 
 from bs4 import BeautifulSoup
 import httpx
-from ddgs import DDGS
 
 from browser import BRAVE_SEARCH_SESSION
 from browser.search.web import BraveBrowser
@@ -51,133 +50,6 @@ def _question_to_queries(question: str, max_queries: int = 1) -> list[str]:
     return queries[:max_queries]
 
 
-def _duckduckgo_search(query: str, max_results: int = 1) -> list[WebSearchResult]:
-    """Performs a DuckDuckGo search and returns results as WebResource objects.
-
-    Args:
-        query: The search query string.
-        max_results: The maximum number of search results to retrieve.
-
-    Returns:
-        A list of WebResource objects, where 'content' is None and 'metadata'
-        contains the search result details.
-    """
-    found_resources = []
-    with DDGS() as ddgs:
-        results = list(ddgs.text(query, max_results=max_results))
-        if not results:
-            print(f"⚠️ No search results found for '{query}'")
-            return []
-
-        for i, result in enumerate(results):
-            resource = WebSearchResult(
-                link=result.get('href', NOT_FOUND_LITERAL),
-                metadata={
-                    "search_order": i,
-                    "web_page_title": result.get('title', NOT_FOUND_LITERAL),
-                    "web_page_summary": result.get('body', NOT_FOUND_LITERAL),
-                    "query": query
-                }
-            )
-            found_resources.append(resource)
-
-    return found_resources
-
-def _brave_search(query: str, max_results: int, brave_search_session: Optional[BraveBrowser] = None) -> list[dict]:
-    """ 
-    Performs a Brave Web search and returns results as WebResource objects.
-
-    Args:
-        query: The search query string.
-        max_results: The maximum number of search results to retrieve.
-        brave_search_session: selenium browser search with Brave
-
-    Returns:
-        A list of WebResource objects, where 'content' is None and 'metadata'
-        contains the search result details.
-    """
-
-    def  parse_search_results(html_content: str, n: int) -> list[dict]:
-        """
-        Parses the HTML content of a Brave search results page to extract
-        the top 'n' search results.
-
-        Args:
-            html_content: The raw HTML string of the search page.
-            n: The number of search results to retrieve.
-
-        Returns:
-            A list of dictionaries, where each dictionary contains the
-            'title', 'link', and 'description' of a search result.
-        """
-        soup = BeautifulSoup(html_content, 'html.parser')
-        
-        # Find all the main containers for the search results.
-        # We exclude snippets that are 'standalone' (like Videos, Infobox)
-        # and focus on those with a 'data-pos' attribute, which marks regular web results.
-        result_containers = soup.find_all('div', class_='snippet', attrs={'data-pos': True})
-        
-        parsed_results = []
-        
-        for result in result_containers[:n]:
-            title = "N/A"
-            link = "N/A"
-            description = "N/A"
-
-            # assumption: the link and title are within the same <a> tag
-            link_element = result.find('a', href=True)
-            if link_element and link_element.has_attr('href'):
-                link = link_element['href']
-                
-                title_element = link_element.find('div', class_='title')
-                if title_element:
-                    title = title_element.get_text(strip=True)
-
-            description_element = result.find('div', class_='content')
-            if description_element:
-                description = description_element.get_text(strip=True)
-
-            parsed_results.append({
-                "title": title,
-                "link": link,
-                "description": description
-            })
-            
-        return parsed_results
-
-    if not brave_search_session:
-        base_search_url = "https://search.brave.com/search?q="
-        search_url = base_search_url + "+".join(query.split(" "))
-        logger.info(f"Searching url: {search_url}")
-        headers = {
-            'Accept-Encoding': 'gzip, deflate',
-            'User-Agent': 'Chrome/122.0.0.0',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Referer': "https://search.brave.com"
-        }
-        response_search = requests.get(search_url, headers=headers)
-        search_browser_page = str(response_search.content)
-    else:
-        search_browser_page = brave_search_session.search(query)
-
-    results = parse_search_results(search_browser_page, max_results)
-    found_resources = list()
-    for i, result in enumerate(results):
-        resource = WebSearchResult(
-            link=result.get('link', NOT_FOUND_LITERAL),
-            metadata={
-                "search_order": i,
-                "web_page_title": result.get('title', NOT_FOUND_LITERAL),
-                "web_page_summary": result.get('body', NOT_FOUND_LITERAL),
-                "query": query
-            }
-        )
-        found_resources.append(resource)
-        
-    return found_resources
-
-
 def _drop_non_unique_link(resources: list[Message | WebSearchResult]) -> list[Message | WebSearchResult]:
     """Removes duplicate WebResource objects based on their 'link' attribute.
 
@@ -193,6 +65,7 @@ def _drop_non_unique_link(resources: list[Message | WebSearchResult]) -> list[Me
         if resource.link and resource.link not in seen_links:
             unique_resources.append(resource)
             seen_links.add(resource.link)
+
     return unique_resources
 
 
@@ -217,6 +90,7 @@ def _extract_clean_text(raw_html: str) -> str:
     text = soup.get_text(separator=" ")
     lines = (line.strip() for line in text.splitlines())
     chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+
     return ' '.join(chunk for chunk in chunks if chunk)
 
 def _download_content(resource: WebSearchResult) -> str:
@@ -243,6 +117,23 @@ def _download_content(resource: WebSearchResult) -> str:
 
     return _extract_clean_text(html_content)
 
+def parse_web_browser_search_results(results: list[dict]) -> list[WebSearchResult]:
+    found_resources = list()
+    for i, result in enumerate(results):
+        resource = WebSearchResult(
+            link=result.get('link', NOT_FOUND_LITERAL),
+            metadata={
+                "search_order": i,
+                "web_page_title": result.get('title', NOT_FOUND_LITERAL),
+                "web_page_summary": result.get('description', NOT_FOUND_LITERAL),
+                "query": result.get("query", NOT_FOUND_LITERAL)
+            }
+        )
+        found_resources.append(resource)
+
+    return found_resources
+
+
 def web_search(question: str) -> list[dict[str, str|WebSearchResult]]:
     """
     Orchestrates the full web search process for a given question.
@@ -259,9 +150,9 @@ def web_search(question: str) -> list[dict[str, str|WebSearchResult]]:
         A list of WebResource objects, with their 'content' field populated with the content of webpage.
     """
 
-    #  number of queries to generate per question
+    # Number of queries to generate per question
     queries_per_question = 1
-    #  number of web links to retrieve for each search query.
+    # Number of web links to retrieve for each search query.
     links_per_query = 1
 
     candidate_queries = _question_to_queries(question, queries_per_question)
@@ -269,7 +160,9 @@ def web_search(question: str) -> list[dict[str, str|WebSearchResult]]:
 
     all_sources = []
     for query in candidate_queries:
-        search_results_for_query = _brave_search(query, links_per_query, BRAVE_SEARCH_SESSION)
+        raw_search_results_for_query = BRAVE_SEARCH_SESSION.search(query, links_per_query)
+        search_results_for_query = parse_web_browser_search_results(raw_search_results_for_query)
+
         all_sources.extend(search_results_for_query)
 
     unique_search_results = _drop_non_unique_link(all_sources)
@@ -280,8 +173,8 @@ def web_search(question: str) -> list[dict[str, str|WebSearchResult]]:
         content = _download_content(search)
         if content:
             populated_resource = {
-                "content": content,
                 "search_result": search,
+                "content": content,
             }
             final_resources.append(populated_resource)
 

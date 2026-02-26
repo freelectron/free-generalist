@@ -32,7 +32,7 @@ class UnstructuredTextProcessorWorkflow(AgentWorkflow):
         task: str,
     ):
         """
-        Initialize the workflow builder.
+        Initialise the workflow builder.
 
         Args:
             name (str): agent name

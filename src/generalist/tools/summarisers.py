@@ -141,10 +141,3 @@ def summarise_findings(task: str, context: str) -> ShortAnswer:
         answer="this is just a summary of previous steps.",
         clarification=response_text,
     )
-
-
-def task_completed():
-    """
-    This tool signals that the task has been completed.
-    """
-    return "end"

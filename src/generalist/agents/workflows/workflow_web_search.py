@@ -33,7 +33,7 @@ class DeepWebSearchWorkflow(AgentWorkflow):
         task: str,
     ):
         """
-        Initialize the workflow builder.
+        Initialise the workflow builder.
 
         Args:
             name (str): agent name
@@ -50,8 +50,6 @@ class DeepWebSearchWorkflow(AgentWorkflow):
         )
 
     def process_tool_output(self, state: AgentState):
-        """
-        """
         link = ""
         content = state["tool_call_result"].output
         if state["tool_call_result"].type == ToolOutputType.FILE:
