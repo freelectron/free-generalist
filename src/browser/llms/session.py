@@ -17,6 +17,7 @@ from clog import get_logger
 
 class LLMSession:
     llm_chat_url = None
+    waiter_default_timeout = 45
 
     def __init__(self, browser: ChromeBrowser, session_id: str):
         self.logger = get_logger(name=self.__class__.__name__)
@@ -44,7 +45,7 @@ class LLMSession:
         self.browser.wait(2)
         self._validate_start_page_loaded()
 
-    def _retrieve_last_answer(self):
+    def _retrieve_last_answer(self, time_out: int):
         raise NotImplementedError()
 
     def _validate_message_sent(self, n_tries: int = 2):
@@ -55,7 +56,7 @@ class LLMSession:
                 if self.past_questions_answers
                 else ""
             )
-            last_answer_on_page = self._retrieve_last_answer()
+            last_answer_on_page = self._retrieve_last_answer(self.waiter_default_timeout)
             # FixMe: this is a bad check to actually see if the message was sent
             if last_answer_memory == last_answer_on_page or last_answer_on_page == "":
                 raise MessageNotSentError("No new response from LLM")
@@ -78,22 +79,26 @@ class LLMSession:
 
 
 class ChatGPT(LLMSession):
-    waiter_default_timeout = 1
     logging_file = "llm_browser_session_openai.log"
     llm_chat_url = "https://chat.openai.com/chat"
 
     def __init__(self, browser: ChromeBrowser, session_id: str = None):
         super().__init__(browser, session_id)
 
-    def _retrieve_last_answer(self, time_out: int = 25):
+    def _retrieve_last_answer(self, time_out: int):
         start_time = time()
         last_answer = ""
         while True:
+            # TODO: check if this will wait for a new message, if there is already a message!
             answer = self.browser.waiter.until(
                 EC.presence_of_all_elements_located(
                     (By.CSS_SELECTOR, "div[data-message-author-role='assistant']")
                 )
             )[-1]
+            # If there is already a message, we need to wait till the new one arrives.
+            # TODO: how to get notified that the new message has arrived?
+            self.browser.wait(2)
+
             if len(answer.text) > len(last_answer):
                 last_answer = answer.text
             elif len(answer.text) == len(last_answer):
@@ -101,7 +106,7 @@ class ChatGPT(LLMSession):
             else:
                 if time() - start_time > time_out:
                     break
-            sleep(1)
+            self.browser.wait(1)
 
         return last_answer
 
@@ -159,7 +164,6 @@ class ChatGPT(LLMSession):
 
 
 class DeepSeek(LLMSession):
-    waiter_default_timeout = 1
     logging_file = "llm_browser_session_deepseek.log"
     llm_chat_url = "https://chat.deepseek.com/"
 
@@ -225,7 +229,7 @@ class DeepSeek(LLMSession):
                 "Failed to start chat session. Page did not load correctly."
             )
 
-    def _retrieve_last_answer(self, time_out: int = 25):
+    def _retrieve_last_answer(self, time_out: int):
         start_time = time()
         last_answer = ""
         while True:

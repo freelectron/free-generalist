@@ -9,7 +9,7 @@ from clog import get_logger
 
 
 class ChromeBrowser:
-    waiter_default_timeout = 10
+    waiter_default_timeout = 30
     # Mapping from tabs tittle to their window handles
     opened_tabs: Dict[str, Any] = {}
 
@@ -41,5 +41,5 @@ class ChromeBrowser:
             options=self.options,
             user_data_dir=os.path.join(self.chrome_user_data_dir, self.profile),
         )
-        self.waiter = WebDriverWait(self.driver, self.waiter_default_timeout)
+        self.waiter = WebDriverWait(driver=self.driver, timeout=self.waiter_default_timeout)
         self.wait(1)

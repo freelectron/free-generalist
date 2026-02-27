@@ -1,18 +1,13 @@
-import os
-import re
-from typing import Optional, Tuple, Type
+from typing import Type
 from dataclasses import dataclass
 
 from .workflows.workflow_coder import CodeWriterExecutorWorkflow
 from .workflows.workflow_web_search import DeepWebSearchWorkflow
 from ..models.core import llm
-from ..tools.summarisers import construct_short_answer
-from ..tools.text_processing import process_text
-from ..tools.data_model import Message, ShortAnswer
-from ..tools.media import download_audio
-from ..tools.media import transcribe_mp3
+from ..tools.text_processing.text_processing import process_text
+from ..tools.data_model import Message
 from clog import get_logger
-
+from ..tools.text_processing.utils import read_local_file
 
 logger = get_logger(__name__)
 
@@ -81,39 +76,25 @@ class AgentDeepWebSearch(BaseAgent):
 class AgentUnstructuredDataProcessor(BaseAgent):
     """Capability for processing unstructured text."""
     name = "unstructured_data_processing"
-    capability = "analyzes or extracts information from the previously downloaded resources/text"
+    capability = "analyzes or extracts information from the previously downloaded and available locally resources/text"
 
     def run(self, resources: list[Message]) -> Message:
         resource_contents = []
         for resource in resources:
-            # if local link, load the contents
             content = resource.content
             if resource.link:
-                if not resource.link.startswith("http") or resource.link.startswith("www"):
-                    with open(resource.link, "rt") as f:
-                        content = f.read()
-                else:
-                    logger.error(f"Cannot read from non-local resource {resource}")
+                content = read_local_file(resource.link)
             else:
-                logger.error(f"Link resources is empty {resource}")
-                return Message(
-                    provided_by=self.name,
-                    content=f"Query: {self.activity} \n Answers: no file was given to analyse.",
-                )
+                logger.warning(f"No link available for resource: {resource}")
             resource_contents.append(content)
 
-        if not resource_contents:
-            logger.error(f"No resources to analyse {resources} or no content gathered.")
-
-        # Join contents all together to give to a chunk splitter
         text  = "\n".join(resource_contents)
-        answers = process_text(self.activity, text)
-
+        answers = process_text(self.activity, text, mode="remote")
         logger.info(f" After running {self.name}, the final state answers are :\n{answers}")
 
         return Message(
             provided_by=self.name,
-            content=f"Query: {self.activity} \n Answers: {answers}",
+            content=f"Query: {self.activity}\nAnswers: {answers}",
         )
 
 
