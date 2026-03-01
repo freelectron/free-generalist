@@ -94,7 +94,8 @@ class BraveBrowser(BrowserWebSearch):
 
         # Add LLM summary
         result_container_llm_summary = soup.find_all('div', class_='chatllm-content')
-        parsed_results.append(BraveBrowser.parse_out_llm_result(result_container_llm_summary[0]))
+        if len(result_container_llm_summary) > 0:
+            parsed_results.append(BraveBrowser.parse_out_llm_result(result_container_llm_summary[-1]))
 
         return parsed_results
 

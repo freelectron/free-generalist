@@ -57,15 +57,11 @@ class LLMSession:
                 else ""
             )
             last_answer_on_page = self._retrieve_last_answer(self.waiter_default_timeout)
-            # FixMe: this is a bad check to actually see if the message was sent
-            if last_answer_memory == last_answer_on_page or last_answer_on_page == "":
-                raise MessageNotSentError("No new response from LLM")
-            else:
-                return last_answer_on_page
-
-        raise ValueError(
-            "Could not retrieve the new response or it was the same as the last one."
-        )
+        # FixMe: this is a bad check to actually see if the message was sent
+        if last_answer_memory == last_answer_on_page or last_answer_on_page == "":
+            raise MessageNotSentError("No new response from LLM")
+        else:
+            return last_answer_on_page
 
     def send_message(self, message: str):
         self._activate_chat_session()
@@ -85,45 +81,34 @@ class ChatGPT(LLMSession):
     def __init__(self, browser: ChromeBrowser, session_id: str = None):
         super().__init__(browser, session_id)
 
-    def _retrieve_last_answer(self, time_out: int):
+    def _retrieve_last_answer(self, time_out: int, n_tries: int = 3):
         start_time = time()
         last_answer = ""
-        while True:
-            # TODO: check if this will wait for a new message, if there is already a message!
+        for i in range(n_tries):
+            # TODO: check if this will wait for till the content is fully loaded
             answer = self.browser.waiter.until(
                 EC.presence_of_all_elements_located(
                     (By.CSS_SELECTOR, "div[data-message-author-role='assistant']")
                 )
             )[-1]
-            # If there is already a message, we need to wait till the new one arrives.
-            # TODO: how to get notified that the new message has arrived?
-            self.browser.wait(2)
-
+            # TODO: how to get notified that the new message has fully arrived?
+            #  Now it is done by waiting and checking against the state of it
             if len(answer.text) > len(last_answer):
                 last_answer = answer.text
-            elif len(answer.text) == len(last_answer):
-                break
             else:
                 if time() - start_time > time_out:
                     break
-            self.browser.wait(1)
+            self.browser.wait(2)
 
         return last_answer
 
     def _validate_start_page_loaded(self, n_tries: int = 2):
-        # ToDo: see if this is robust
-        if "Stay logged out" in self.browser.driver.page_source:
-            self.logger.warning("'Stay logged out' link found. Clicking it..")
-            self.pass_checks()
         for i in range(n_tries):
-            self.logger.info(
-                f"Checking {i+1} if the LLM's start browser page is loaded."
-            )
             html_source = self.browser.driver.page_source
             if 'content="ChatGPT"><meta' in html_source:
                 return
             else:
-                self.browser.wait(15)
+                self.browser.wait(10)
 
         raise BrowserTimeOutError(
             "Failed to start chat session. Page did not load correctly."
@@ -134,21 +119,26 @@ class ChatGPT(LLMSession):
             EC.element_to_be_clickable((By.ID, "prompt-textarea"))
         )
         editor_div.click()
-        for i, line in enumerate(message.split("\n")):
-            if i > 0:
-                editor_div.send_keys(Keys.SHIFT, Keys.ENTER)
-            editor_div.send_keys(line)
-        editor_div.send_keys(Keys.ENTER)
-        self.browser.wait(5)
+        self.browser.random_mouse_move(2)
+        self.browser.wait(1)
 
+        # ClosedAI's javascript interprets \n as a seng msg command, so escape it
+        chunk_size = 2000
+        for i in range(0, len(message), chunk_size):
+            message_chunk = message[i:i + chunk_size].replace("\n","\\n")
+            editor_div.send_keys(message_chunk)
+            self.browser.wait(0.5)
+        self.browser.wait(2)
+        # self.browser.random_mouse_move(1)
+
+        editor_div.send_keys(Keys.ENTER)
+        # Wait till the llm the first token, that when the div for the answer appears
+        self.browser.wait(10)
+
+        # We assume that the answer's div is already present
         answer = self._validate_message_sent()
         # ToDo: create a datastruct for this
         self.past_questions_answers.append({"message": message, "answer": answer})
-
-        # ToDo: see if this is robust
-        if "Stay logged out" in self.browser.driver.page_source:
-            self.logger.warning("'Stay logged out' link found. Clicking it..")
-            self.pass_checks()
 
         return answer
 

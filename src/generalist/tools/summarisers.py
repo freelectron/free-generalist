@@ -26,20 +26,29 @@ def construct_short_answer(task: str, context: str) -> ShortAnswer:
         A ShortAnswer dataclass instance containing the answer and clarification.
     """
     prompt = f"""
-    You are presented with a list of information from one or several sources: {context}
+You are tasked with determining whether the following TASK can be answered using the provided information.
 
-    Based **ONLY** on that information and without any additional assumptions from your side, evaluate whether the task specified was performed. 
-    TASK: {task}
+TASK: {task}
 
-    Your answer should be in a valid JSON format like so:
-    {{
-        "answered": <write only "true" or "false", put "true" if the answers for the TASK is clearly stated in the resources, else put "false">  
-        "answer": "<a single number, word, or phrase which is the answer to the question>",
-        "clarification": "<a very short mention of what is stated in the context/sources>"
-    }}
-    
-    **IMPORTANT**: regardless whether the task has been completed, `clarification` field should include the main findings. 
-    **IMPORTANT**: if only partial answer, do not mark the task as answered:true !!! 
+INFORMATION PROVIDED:
+{context}
+
+INSTRUCTIONS:
+1. Review the information provided above carefully
+2. Determine if the TASK can be fully answered using ONLY the information given
+3. Do NOT use external knowledge or make assumptions beyond what is explicitly stated
+
+OUTPUT FORMAT (valid JSON):
+{{
+    "answer": "<provide the direct answer as a concise word, number, or short phrase, IF the TASK is completely answered in the information, otherwise use leave blank>",
+    "clarification": "<briefly explain what the information contains and how it relates to the task>"
+}}
+
+IMPORTANT RULES:
+- Provide "answer" ONLY when the task has a complete answer in the provided information
+- If the answer is partial or incomplete, set "answered" to "false"
+- ALWAYS fill the "clarification" field with the main findings from the information, regardless of whether the task was answered
+- Base your response strictly on the provided information without adding external knowledge
     """
 
     llm_response = llm.complete(prompt)
@@ -57,10 +66,18 @@ def construct_short_answer(task: str, context: str) -> ShortAnswer:
     if isinstance(data["answered"], bool):
         data["answered"] = str(data["answered"])
 
+    answer = data.get("answer", None)
+    if not answer:
+        answered = False
+    elif answer in ["", "None", "blank"]:
+        answered = False
+    else:
+        answered = True
+
     return ShortAnswer(
-        answered=True if data.get("answered") in ["True", "true", "yes", "1"] else False,
-        answer=data.get("answer", "did-not-parse"),
-        clarification=data.get("clarification", "did-not-parse.")
+        answered=answered,
+        answer=answer,
+        clarification=data.get("clarification", None)
     )
 
 

@@ -1,9 +1,11 @@
 import os
+import random
 from time import sleep
 from typing import Any, Dict, Optional
 
 import undetected as uc
 from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.common.action_chains import ActionChains
 
 from clog import get_logger
 
@@ -29,6 +31,12 @@ class ChromeBrowser:
 
         return options
 
+    def random_mouse_move(self, n_moves: int = 3):
+        for i in range(n_moves):
+            x_diff, y_diff = int(random.uniform(0, 20)), int(random.uniform(0, 20))
+            self.actions.move_by_offset(x_diff, y_diff)
+            self.wait(0.2)
+
     def __init__(self, profile: Optional[str] = None):
         self.logger = get_logger(name=self.__class__.__name__)
 
@@ -42,4 +50,5 @@ class ChromeBrowser:
             user_data_dir=os.path.join(self.chrome_user_data_dir, self.profile),
         )
         self.waiter = WebDriverWait(driver=self.driver, timeout=self.waiter_default_timeout)
+        self.actions = ActionChains(self.driver)
         self.wait(1)

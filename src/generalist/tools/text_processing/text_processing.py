@@ -62,8 +62,6 @@ def _process_chunk_remote(task: str, text: str) -> str:
     answer = CHATGPT_SESSION.send_message(prompt)
     # answer =  DEEPSEEK_SESSION.send_message(prompt)
 
-
-
     return answer
 
 
@@ -100,7 +98,8 @@ def process_text(task: str, text: str, mode: Literal["local", "remote"] = "local
 
     responses = []
     for chunk in chunks:
-        chunk_response = processor(task, chunk)
+        if chunk:
+            chunk_response = processor(task, chunk)
         if "NOT FOUND" not in chunk_response:
             responses.append(chunk_response)
 

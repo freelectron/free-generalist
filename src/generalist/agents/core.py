@@ -89,6 +89,9 @@ class AgentUnstructuredDataProcessor(BaseAgent):
             resource_contents.append(content)
 
         text  = "\n".join(resource_contents)
+        if len(text) < 10:
+            logger.warning("Probably no resources to analyse: ", text)
+
         answers = process_text(self.activity, text, mode="remote")
         logger.info(f" After running {self.name}, the final state answers are :\n{answers}")
 

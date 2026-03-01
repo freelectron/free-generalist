@@ -138,15 +138,10 @@ class AgentWorkflow:
         """
 
         # Sometimes llm does not call any tools so we need to retry
-        try:
-            response = self.llm.predict_and_call(user_msg=prompt, tools=self.tools)
-        except ValueError as e:
-            if "Expected at least one tool call" in str(e):
-                prompt = prompt + "\n\nIMPORTANT: You MUST call one of the available tools. Review the tools and select the most appropriate one."
-                response = self.llm.predict_and_call(user_msg=prompt, tools=self.tools)
-            else:
-                logger.error(f"Encountered error in when running {self.agent_name}: {e}")
-                raise  # re-raise if it's a different ValueError
+        response = self.llm.predict_and_call(user_msg=prompt, tools=self.tools)
+
+        if "Encountered error" in str(response):
+            raise ValueError(f"Stopping early {response}")
 
         # Tool that has just been called
         tool_name = response.sources[0].tool_name
