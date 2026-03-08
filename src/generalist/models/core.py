@@ -1,3 +1,5 @@
+import inspect
+
 from llama_index.llms.ollama import Ollama
 import mlflow
 
@@ -16,8 +18,6 @@ class MLFlowLLMWrapper:
         self.llm = llm_instance
 
     def complete(self, prompt, **kwargs):
-        import inspect
-
         # Get caller function name and module
         caller_frame = inspect.currentframe().f_back
         caller_function = caller_frame.f_code.co_name
@@ -38,7 +38,6 @@ class MLFlowLLMWrapper:
             return response
 
     def predict_and_call(self, user_msg, tools, **kwargs):
-        import inspect
         # Get caller function name and module
         caller_frame = inspect.currentframe().f_back
         caller_function = caller_frame.f_code.co_name
