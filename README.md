@@ -30,5 +30,11 @@ Can look into `opencode` for some nice [docs](https://deepwiki.com/sst/opencode/
 
 ### Live Interaction with Websites
 
+*Option 1*
 Make use of something like [`browser-use`](https://github.com/browser-use/browser-use?tab=readme-ov-file) 
-to interact with web pages.
+to interact with web pages. It is especially interesting to see how `browser-use` uses `playwrite` (which uses Chrome Dev Protocol)
+to parse any html/js page and extract actionable/relevant page objects (buttons, text, etc) from there.
+See deepwiki for some more context on [DOM parsing](https://deepwiki.com/browser-use/browser-use/5-dom-processing-engine) in `browser-use`.
+
+*Option 2*
+Use `selenium` to do page parsing and doing an action. Gives a lot of freedom on how to do things.  
