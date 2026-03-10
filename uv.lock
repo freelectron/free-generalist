@@ -683,6 +683,7 @@ source = { editable = "." }
 dependencies = [
     { name = "beautifulsoup4" },
     { name = "datasets" },
+    { name = "fastapi" },
     { name = "huggingface-hub" },
     { name = "langchain" },
     { name = "langchain-text-splitters" },
@@ -698,6 +699,7 @@ dependencies = [
     { name = "selenium" },
     { name = "torch" },
     { name = "undetected" },
+    { name = "uvicorn" },
     { name = "yt-dlp" },
 ]
 
@@ -710,6 +712,7 @@ evaluation = [
 requires-dist = [
     { name = "beautifulsoup4", specifier = ">=4" },
     { name = "datasets", specifier = ">=4.6.0" },
+    { name = "fastapi", specifier = ">=0.115.0" },
     { name = "huggingface-hub", specifier = ">=1.4.1" },
     { name = "langchain", specifier = ">=1" },
     { name = "langchain-text-splitters", specifier = ">=1" },
@@ -725,6 +728,7 @@ requires-dist = [
     { name = "selenium", specifier = ">=4.41.0" },
     { name = "torch", specifier = ">=2.9.0" },
     { name = "undetected", specifier = ">=0.0.12" },
+    { name = "uvicorn", specifier = ">=0.34.0" },
     { name = "yt-dlp", specifier = ">=2025.10.2" },
 ]
 

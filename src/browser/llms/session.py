@@ -77,6 +77,7 @@ class LLMSession:
 class ChatGPT(LLMSession):
     logging_file = "llm_browser_session_openai.log"
     llm_chat_url = "https://chat.openai.com/chat"
+    message_chunk_size = 5000
 
     def __init__(self, browser: ChromeBrowser, session_id: str = None):
         super().__init__(browser, session_id)
@@ -123,17 +124,17 @@ class ChatGPT(LLMSession):
         self.browser.wait(1)
 
         # ClosedAI's javascript interprets \n as a seng msg command, so escape it
-        chunk_size = 2000
-        for i in range(0, len(message), chunk_size):
-            message_chunk = message[i:i + chunk_size].replace("\n","\\n")
+        for i in range(0, len(message), self.message_chunk_size):
+            message_chunk = message[i:i + self.message_chunk_size].replace("\n", "\\n")
             editor_div.send_keys(message_chunk)
             self.browser.wait(0.5)
         self.browser.wait(2)
-        # self.browser.random_mouse_move(1)
+        self.browser.random_mouse_move(1)
 
         editor_div.send_keys(Keys.ENTER)
         # Wait till the llm the first token, that when the div for the answer appears
-        self.browser.wait(10)
+        # TODO: see a better way to wait for an answer
+        self.browser.wait(15)
 
         # We assume that the answer's div is already present
         answer = self._validate_message_sent()
@@ -156,6 +157,7 @@ class ChatGPT(LLMSession):
 class DeepSeek(LLMSession):
     logging_file = "llm_browser_session_deepseek.log"
     llm_chat_url = "https://chat.deepseek.com/"
+    message_chunks = 5000
 
     def __init__(self, browser: ChromeBrowser, session_id: str = None):
         super().__init__(browser, session_id)
@@ -248,12 +250,19 @@ class DeepSeek(LLMSession):
             EC.element_to_be_clickable((By.XPATH, xpath_locator))
         )
         chat_input_textarea.click()
-        for i, line in enumerate(message.split("\n")):
-            if i > 0:
-                chat_input_textarea.send_keys(Keys.SHIFT, Keys.ENTER)
-            chat_input_textarea.send_keys(line)
+
+        # for i, line in enumerate(message.split("\n")):
+        #     if i > 0:
+        #         chat_input_textarea.send_keys(Keys.SHIFT, Keys.ENTER)
+        #     chat_input_textarea.send_keys(line)
+        for i in range(0, len(message), self.message_chunks):
+            message_chunk = message[i:i + self.message_chunks].replace("\n","\\n")
+            chat_input_textarea.send_keys(message_chunk)
+            self.browser.wait(0.5)
+
         chat_input_textarea.send_keys(Keys.ENTER)
-        self.browser.wait(10)
+        # TODO: see a better way to wait for an answer
+        self.browser.wait(15)
 
         answer = self._validate_message_sent()
         # ToDo: create a datastruct for this

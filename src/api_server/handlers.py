@@ -1,4 +1,12 @@
 from typing import Any
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+assert os.getenv("CHROME_USER_DATA_DIR", None)
+
+from browser import CHATGPT_SESSION, DEEPSEEK_SESSION
 
 
 async def handle_chat_completions(body: dict[str, Any]) -> dict[str, Any]:
@@ -17,7 +25,24 @@ async def handle_chat_completions(body: dict[str, Any]) -> dict[str, Any]:
         ...
     }
     """
-    raise NotImplementedError("Implement handle_chat_completions in handlers.py")
+    print("[WEBSERVER] MESSAGES", body["messages"])
+    answer = CHATGPT_SESSION.send_message(str(body))
+    # answer = DEEPSEEK_SESSION.send_message(str(body))
+
+    return {
+        "id": "chatcmpl-123",
+        "object": "chat.completion",
+        "created": 1677652288,
+        "model": "web",
+        "choices": [{
+            "index": 0,
+            "message": {
+                "role": "assistant",
+                "content": answer,
+            },
+            "finish_reason": "stop"
+        }],
+    }
 
 
 async def handle_models_list() -> dict[str, Any]:
