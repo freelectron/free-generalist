@@ -34,7 +34,7 @@ class ChromeBrowser:
     def random_mouse_move(self, n_moves: int = 3):
         for i in range(n_moves):
             x_diff, y_diff = int(random.uniform(0, 20)), int(random.uniform(0, 20))
-            self.actions.move_by_offset(x_diff, y_diff)
+            self.actions.move_by_offset(x_diff, y_diff).perform()
             self.wait(0.2)
 
     def __init__(self, profile: Optional[str] = None):

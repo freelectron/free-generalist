@@ -65,6 +65,8 @@ class LLMSession:
 
     def send_message(self, message: str):
         self._activate_chat_session()
+        # TODO: this is suggestion from Claude, as a solution to error with non-BMP characters 
+        message = "".join(c for c in message if ord(c) <= 0xFFFF)
         return self._send_message(message)
 
     def _send_message(self, message: str):
@@ -77,7 +79,6 @@ class LLMSession:
 class ChatGPT(LLMSession):
     logging_file = "llm_browser_session_openai.log"
     llm_chat_url = "https://chat.openai.com/chat"
-    message_chunk_size = 5000
 
     def __init__(self, browser: ChromeBrowser, session_id: str = None):
         super().__init__(browser, session_id)
@@ -123,13 +124,12 @@ class ChatGPT(LLMSession):
         self.browser.random_mouse_move(2)
         self.browser.wait(1)
 
-        # ClosedAI's javascript interprets \n as a seng msg command, so escape it
-        for i in range(0, len(message), self.message_chunk_size):
-            message_chunk = message[i:i + self.message_chunk_size].replace("\n", "\\n")
-            editor_div.send_keys(message_chunk)
-            self.browser.wait(0.5)
-        self.browser.wait(2)
-        self.browser.random_mouse_move(1)
+        # New way: Inject text via execCommand to trigger React's synthetic event system
+        self.browser.driver.execute_script("""
+            arguments[0].focus();
+            document.execCommand('selectAll', false, null);
+            document.execCommand('insertText', false, arguments[1]);
+        """, editor_div, message)
 
         editor_div.send_keys(Keys.ENTER)
         # Wait till the llm the first token, that when the div for the answer appears
@@ -157,7 +157,6 @@ class ChatGPT(LLMSession):
 class DeepSeek(LLMSession):
     logging_file = "llm_browser_session_deepseek.log"
     llm_chat_url = "https://chat.deepseek.com/"
-    message_chunks = 5000
 
     def __init__(self, browser: ChromeBrowser, session_id: str = None):
         super().__init__(browser, session_id)
@@ -251,14 +250,11 @@ class DeepSeek(LLMSession):
         )
         chat_input_textarea.click()
 
-        # for i, line in enumerate(message.split("\n")):
-        #     if i > 0:
-        #         chat_input_textarea.send_keys(Keys.SHIFT, Keys.ENTER)
-        #     chat_input_textarea.send_keys(line)
-        for i in range(0, len(message), self.message_chunks):
-            message_chunk = message[i:i + self.message_chunks].replace("\n","\\n")
-            chat_input_textarea.send_keys(message_chunk)
-            self.browser.wait(0.5)
+        self.browser.driver.execute_script("""
+            arguments[0].focus();
+            document.execCommand('selectAll', false, null);
+            document.execCommand('insertText', false, arguments[1]);
+        """, chat_input_textarea, message)
 
         chat_input_textarea.send_keys(Keys.ENTER)
         # TODO: see a better way to wait for an answer
