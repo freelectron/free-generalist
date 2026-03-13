@@ -1,13 +1,10 @@
 ########
-# FIXME:Find a better way to user browser
-# import os
-# from dotenv import load_dotenv
-# load_dotenv()
-# assert os.getenv("CHROME_USER_DATA_DIR")
-# from browser import CHATGPT_SESSION, DEEPSEEK_SESSION
-
-# answer = CHATGPT_SESSION.send_message(str(body))
-# answer = DEEPSEEK_SESSION.send_message(str(body))
+## FIXME:Find a better way to user browser
+import os
+from dotenv import load_dotenv
+load_dotenv()
+assert os.getenv("CHROME_USER_DATA_DIR")
+from browser import CHATGPT_SESSION, DEEPSEEK_SESSION
 ########
 
 import json
@@ -20,6 +17,12 @@ from clog import get_logger
 
 
 logger = get_logger(__name__)
+
+
+def _get_llm_response(query:str):
+    # answer = CHATGPT_SESSION.send_message(query)
+    answer = DEEPSEEK_SESSION.send_message(query)
+    return answer
 
 
 def _chat_completions_sse_chunk(content: str, created: int) -> str:
@@ -69,7 +72,7 @@ async def handle_chat_completions(req: dict[str, Any]):
         ...
     }
     """
-    answer = "dummy_answer"
+    answer = _get_llm_response(str(req))
 
     # SSE = server side streaming
     if req["body"].get('stream', False):
@@ -134,11 +137,9 @@ async def _api_chat_stream_answer(answer: str) -> AsyncGenerator[str, None]:
     yield _api_chat_sse_done(created)
 
 async def handle_api_chat(req: dict):
-    answer = "dummy_answer"
+    answer = _get_llm_response(str(req))
 
-    time.sleep(1)
     # SSE = server side streaming
-    print("req.get('stream') :: ", req["body"].get('stream'))
     if req["body"].get('stream'):
         return StreamingResponse(
             _api_chat_stream_answer(answer),
