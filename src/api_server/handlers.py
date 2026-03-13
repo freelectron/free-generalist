@@ -1,18 +1,28 @@
+########
+# FIXME:Find a better way to user browser
+# import os
+# from dotenv import load_dotenv
+# load_dotenv()
+# assert os.getenv("CHROME_USER_DATA_DIR")
+# from browser import CHATGPT_SESSION, DEEPSEEK_SESSION
+
+# answer = CHATGPT_SESSION.send_message(str(body))
+# answer = DEEPSEEK_SESSION.send_message(str(body))
+########
+
 import json
 from typing import Any, AsyncGenerator
-import os
 import time
-from dotenv import load_dotenv
 from fastapi.responses import StreamingResponse
+from tenacity import sleep_using_event
 
-load_dotenv()
-
-assert os.getenv("CHROME_USER_DATA_DIR", None)
-
-from browser import CHATGPT_SESSION, DEEPSEEK_SESSION
+from clog import get_logger
 
 
-def _sse_chunk(content: str, created: int) -> str:
+logger = get_logger(__name__)
+
+
+def _chat_completions_sse_chunk(content: str, created: int) -> str:
     data = {
         'id': 'chatcmpl-123',
         'object': 'chat.completion.chunk',
@@ -28,8 +38,7 @@ def _sse_chunk(content: str, created: int) -> str:
     }
     return f"data: {json.dumps(data)}\n\n"
 
-
-def _sse_done(created: int) -> str:
+def _chat_completions_sse_done(created: int) -> str:
     data = {
         'id': 'chatcmpl-123',
         'object': 'chat.completion.chunk',
@@ -39,16 +48,14 @@ def _sse_done(created: int) -> str:
     }
     return f"data: {json.dumps(data)}\n\ndata: [DONE]\n\n"
 
-
-async def _stream_answer(answer: str) -> AsyncGenerator[str, None]:
+async def _chat_completions_stream_answer(answer: str) -> AsyncGenerator[str, None]:
     created = int(time.time())
     chunk_size = 200
     for i in range(0, len(answer), chunk_size):
-        yield _sse_chunk(answer[i:i + chunk_size], created)
-    yield _sse_done(created)
+        yield _chat_completions_sse_chunk(answer[i:i + chunk_size], created)
+    yield _chat_completions_sse_done(created)
 
-
-async def handle_chat_completions(body: dict[str, Any]):
+async def handle_chat_completions(req: dict[str, Any]):
     """
     Handle POST /v1/chat/completions
 
@@ -62,12 +69,12 @@ async def handle_chat_completions(body: dict[str, Any]):
         ...
     }
     """
-    answer = CHATGPT_SESSION.send_message(str(body))
-    # answer = DEEPSEEK_SESSION.send_message(str(body))
+    answer = "dummy_answer"
 
-    if body.get('stream', False):
+    # SSE = server side streaming
+    if req["body"].get('stream', False):
         return StreamingResponse(
-            _stream_answer(answer),
+            _chat_completions_stream_answer(answer),
             media_type='text/event-stream',
         )
 
@@ -93,6 +100,62 @@ async def handle_chat_completions(body: dict[str, Any]):
         },
     }
 
+
+def _api_chat_sse_chunk(content: str, created: int) -> str:
+    data = {
+        'created_at': created,
+        'model': 'web',
+        'message': {
+            "role": "assistant",
+            "content": content,
+        },
+        "done": False,
+    }
+    return json.dumps(data) + "\n"
+
+def _api_chat_sse_done(created: int) -> str:
+    data = {
+        'created_at': created,
+        'model': 'web',
+        'message': {
+            "role": "assistant",
+            "content": "",
+        },
+        "done": True,
+        "done_reason": "stop",
+    }
+    return json.dumps(data) + "\n"
+
+async def _api_chat_stream_answer(answer: str) -> AsyncGenerator[str, None]:
+    created = int(time.time())
+    chunk_size = 200
+    for i in range(0, len(answer), chunk_size):
+        yield _api_chat_sse_chunk(answer[i:i + chunk_size], created)
+    yield _api_chat_sse_done(created)
+
+async def handle_api_chat(req: dict):
+    answer = "dummy_answer"
+
+    time.sleep(1)
+    # SSE = server side streaming
+    print("req.get('stream') :: ", req["body"].get('stream'))
+    if req["body"].get('stream'):
+        return StreamingResponse(
+            _api_chat_stream_answer(answer),
+            media_type='text/event-stream',
+        )
+
+    return json.dumps({
+        'created_at': int(time.time()),
+        'model': 'web',
+        'message': {
+            "role": "assistant",
+            "content": answer,
+        },
+        "done": True,
+        "done_reason": "stop",
+        }
+    )
 
 async def handle_models_list() -> dict[str, Any]:
     """
