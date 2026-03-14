@@ -27,6 +27,7 @@ dependencies = [
     "datasets>=4.6.0",
     "fastapi>=0.115.0",
     "uvicorn>=0.34.0",
+    "pytest>=9.0.2",
 ]
 
 [dependency-groups]
