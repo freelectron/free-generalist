@@ -37,4 +37,4 @@ to parse any html/js page and extract actionable/relevant page objects (buttons,
 See deepwiki for some more context on [DOM parsing](https://deepwiki.com/browser-use/browser-use/5-dom-processing-engine) in `browser-use`.
 
 *Option 2*
-Use `selenium` to do page parsing and doing an action. Gives a lot of freedom on how to do things.  
+Use `selenium` to do page parsing and doing an action. Gives a lot of freedom on how to do things.  BLin Klinton
