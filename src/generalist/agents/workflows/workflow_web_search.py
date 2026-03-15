@@ -1,12 +1,13 @@
 import os.path
 import tempfile
+from typing import Callable
 
 from llama_index.core.llms.function_calling import FunctionCallingLLM
 from llama_index.core.tools import FunctionTool
 from langgraph.graph.state import CompiledStateGraph
 
 from generalist.agents.workflows.workflow_base import AgentState, AgentWorkflow
-from generalist.tools import ToolOutputType, web_search_tool
+from generalist.tools import ToolOutputType, web_search_tool, web_search
 from generalist.tools.data_model import Message
 from clog import get_logger
 
@@ -21,7 +22,7 @@ class DeepWebSearchWorkflow(AgentWorkflow):
 
     Creates a workflow that can perform web searches and process results.
     """
-    tools: list[FunctionTool] = [web_search_tool]
+    tools: list[Callable] = [web_search]
     graph: CompiledStateGraph | None = None
 
     def __init__(

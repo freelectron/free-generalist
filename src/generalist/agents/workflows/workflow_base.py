@@ -1,13 +1,13 @@
 import tempfile
 from dataclasses import dataclass
+from typing import Callable
 
 import mlflow
-from llama_index.core.llms.function_calling import FunctionCallingLLM
-from llama_index.core.tools import FunctionTool
 from typing_extensions import TypedDict
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.state import CompiledStateGraph
 
+from generalist.models.core import MLFlowLLMWrapper
 from generalist.tools import ToolOutputType, get_tool_type
 from generalist.tools.data_model import Message, ShortAnswer
 from clog import get_logger
@@ -58,27 +58,27 @@ class AgentWorkflow:
     Creates a LangGraph workflow that can be customized with different tools
     and decision-making logic for different agent types.
     """
-    tools: list[FunctionTool]
+    tools: list[Callable]
     graph: CompiledStateGraph
 
     def __init__(
         self,
         name: str,
         agent_capability: str,
-        llm: FunctionCallingLLM,
+        llm: MLFlowLLMWrapper,
         context: list[Message],
         task: str,
-        tools: list[FunctionTool] | None = None
+        tools: list[Callable] | None = None
     ):
         """
         Initialise the workflow builder.
 
         Args:
-            name (str): agent name
-            agent_capability (str): short description of what the agent can and supposed to do.
-            llm (FunctionCallingLLM): the brain
-            task (str): task that needs to be performed
-            context (list[Message]): summary of what has been achieved in the previous steps
+            name : agent name
+            agent_capability: short description of what the agent can and supposed to do.
+            llm: the brain
+            task: task that needs to be performed
+            context: summary of what has been achieved in the previous steps
             tools: list of tools that the llm can call
         """
         self.agent_name = name
@@ -90,7 +90,7 @@ class AgentWorkflow:
     def plan_action(self, state: AgentState):
         """Planning node: Reason about what to do next before executing tools."""
         context_str = state["context"]
-        tools_str = "\n".join([f"- {tool.metadata.name}: {tool.metadata.description}" for tool in self.tools])
+        tools_str = "\n".join([f"- {tool.__name__}: {tool.__doc__}" for tool in self.tools])
 
         prompt = f"""
         Role: {self.agent_capability}
@@ -144,7 +144,7 @@ class AgentWorkflow:
             raise ValueError(f"Stopping early {response}")
 
         # Tool that has just been called
-        tool_name = response.sources[0].tool_name
+        tool_name = response.tool_call.tool_name
 
         state["tool_call_result"] = ExecuteToolOutput(name=tool_name, type=get_tool_type(tool_name), output=response.response)
         state["step"] += 1

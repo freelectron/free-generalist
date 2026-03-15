@@ -1,11 +1,12 @@
 import tempfile
+from typing import Callable
 
-from llama_index.core.llms.function_calling import FunctionCallingLLM
-from llama_index.core.tools import FunctionTool
 from langgraph.graph.state import CompiledStateGraph
 
 from generalist.agents.workflows.workflow_base import AgentWorkflow, AgentState
-from generalist.tools import ToolOutputType, eda_table_tool, write_code_tool, execute_code_tool
+from generalist.models.core import MLFlowLLMWrapper
+from generalist.tools import ToolOutputType, eda_table_tool, write_code_tool, execute_code_tool, do_table_eda, \
+    write_code, execute_code
 from generalist.tools.data_model import Message
 from clog import get_logger
 
@@ -19,14 +20,16 @@ class CodeWriterExecutorWorkflow(AgentWorkflow):
 
     Creates a workflow that can write and execute Python code.
     """
-    tools: list[FunctionTool] = [eda_table_tool, write_code_tool, execute_code_tool]
+    tools: list[Callable] = [do_table_eda,
+                             write_code,
+                             execute_code]
     graph: CompiledStateGraph | None = None
 
     def __init__(
         self,
         name: str,
         agent_capability: str,
-        llm: FunctionCallingLLM,
+        llm: MLFlowLLMWrapper,
         context: list[Message],
         task: str,
     ):
@@ -34,10 +37,10 @@ class CodeWriterExecutorWorkflow(AgentWorkflow):
         Initialize the workflow builder.
 
         Args:
-            name (str): agent name
-            llm (FunctionCallingLLM): the brain
-            task (str): task that needs to be performed
-            context (list[Message]): summary of what has been achieved in the previous steps
+            name: agent name
+            llm: the brain
+            task: task that needs to be performed
+            context: summary of what has been achieved in the previous steps
         """
         super().__init__(
             name=name,

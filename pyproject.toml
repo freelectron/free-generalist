@@ -1,7 +1,7 @@
 [project]
 name = "free-generalist"
 version = "0.1.1"
-authors = [{name="freelectron", email="good@bad.com"}]
+authors = [{name="freelectron", email="bad@good.com"}]
 description = "Agent that can do some things without a bank card"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -28,6 +28,8 @@ dependencies = [
     "fastapi>=0.115.0",
     "uvicorn>=0.34.0",
     "pytest>=9.0.2",
+    "ollama>=0.6.1",
+    "openpyxl>=3.1.5", # for pandas to read xls
 ]
 
 [dependency-groups]
