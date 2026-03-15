@@ -31,41 +31,41 @@ def add_tool_directive(original_prompt: str) -> str:
     Modify prompt for llm to return an OpenClaw's tool call as a formated json.
     """
     prompt_delta = """
-    IMPORTANT: if IN THE CURRENT PROMPT user asks you to use a tool available to you in the prompt above, put them in formatted json
-    
-    Clarification:
-    ```json
-    {
-        "function": {
-            "name": "<tool_name>",
-            "arguments": 
-                {
-                    <arguments also in json format that given in ur prompt>
-                }
+IMPORTANT: If the user's request requires using one of the tools available in this prompt, respond with ONLY a JSON code block in the following format:
+```json
+{
+    "function": {
+        "name": "<tool_name>",
+        "arguments": 
+            {
+                <arguments also in json format that given in ur prompt>
+            }
+}
+```
+Example (cron tool):
+```json
+{
+  "function": {
+    "name": "cron",
+    "arguments": {
+      "action": "add",
+      "payload": {
+        "kind": "agentTurn",
+        "message": "message(action=send, to='telegram', message='привет товарищ')"
+      },
+      "schedule": {
+        "at": "2026-03-14T16:00:00Z",
+        "kind": "at"
+      },
+      "sessionTarget": "isolated"
     }
-    ```
-    
-    Example output for the cron tool:
-    ```json
-    {
-      "function": {
-        "name": "cron",
-        "arguments": {
-          "action": "add",
-          "payload": {
-            "kind": "agentTurn",
-            "message": "message(action=send, to='telegram', message='привет товарищ')"
-          },
-          "schedule": {
-            "at": "2026-03-14T16:00:00Z",
-            "kind": "at"
-          },
-          "sessionTarget": "isolated"
-        }
-      }
-    }
-    ```
-    """
+  }
+}
+```
+Rule: IN CASE THE USE WANTS YOU TO PERFORM ACTIONS USING TOOL, 
+YOU MAY ONLY RESPONSE WITH A SINGLE (1) TOOL CALL JSON FROM PROMPT. 
+BASE IT ON THE CONTEXT AND PROGRESS OF THE TASK. 
+"""
     new_prompt = original_prompt + prompt_delta
 
     return new_prompt

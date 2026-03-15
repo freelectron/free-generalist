@@ -4,7 +4,7 @@ import time
 from fastapi.responses import StreamingResponse
 
 from clog import get_logger
-from generalist.prompt_forming.openclaw.llm import get_llm_response
+from generalist.openclaw.llm import get_llm_response
 
 logger = get_logger(__name__)
 

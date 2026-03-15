@@ -30,6 +30,7 @@ dependencies = [
     "pytest>=9.0.2",
     "ollama>=0.6.1",
     "openpyxl>=3.1.5", # for pandas to read xls
+    "pyperclip>=1.11.0",
 ]
 
 [dependency-groups]

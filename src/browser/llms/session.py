@@ -1,6 +1,8 @@
 import os
 from time import sleep, time
 
+import pyperclip
+from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.keys import Keys
@@ -49,6 +51,8 @@ class LLMSession:
         raise NotImplementedError()
 
     def _validate_message_sent(self, n_tries: int = 2):
+        last_answer_memory = ""
+        last_answer_on_page = ""
         for i in range(n_tries):
             # ToDo: use a datastruct to access the answer attribute
             last_answer_memory = (
@@ -57,8 +61,11 @@ class LLMSession:
                 else ""
             )
             last_answer_on_page = self._retrieve_last_answer(self.waiter_default_timeout)
+
         # FixMe: this is a bad check to actually see if the message was sent
         if last_answer_memory == last_answer_on_page or last_answer_on_page == "":
+            self.logger.error(f"Last answer in memory = current answer? {last_answer_memory == last_answer_on_page}")
+            self.logger.error(f"Got empty answer after validation: {last_answer_memory == last_answer_on_page}")
             raise MessageNotSentError("No new response from LLM")
         else:
             return last_answer_on_page
@@ -67,13 +74,11 @@ class LLMSession:
         self._activate_chat_session()
         # TODO: this is suggestion from Claude, as a solution to error with non-BMP characters 
         message = "".join(c for c in message if ord(c) <= 0xFFFF)
+        #
         return self._send_message(message)
 
     def _send_message(self, message: str):
         raise NotImplementedError
-
-    def pass_checks(self):
-        raise NotImplementedError()
 
 
 class ChatGPT(LLMSession):
@@ -100,7 +105,7 @@ class ChatGPT(LLMSession):
             else:
                 if time() - start_time > time_out:
                     break
-            self.browser.wait(2)
+            self.browser.wait(1)
 
         return last_answer
 
@@ -142,16 +147,6 @@ class ChatGPT(LLMSession):
         self.past_questions_answers.append({"message": message, "answer": answer})
 
         return answer
-
-    def pass_checks(self):
-        """Click 'Stay logged out' link that needs to be clicked or something of this sort"""
-        try:
-            stay_logged_out_link = self.browser.waiter.until(
-                EC.element_to_be_clickable((By.LINK_TEXT, "Stay logged out"))
-            )
-            stay_logged_out_link.click()
-        except Exception as e:
-            raise BrowserStayLoggedOutFailed(e.__str__())
 
 
 class DeepSeek(LLMSession):
@@ -266,6 +261,76 @@ class DeepSeek(LLMSession):
 
         return answer
 
+
+class Gemini(LLMSession):
+    logging_file = "llm_browser_session_gemini.log"
+    llm_chat_url = "https://gemini.google.com/app"
+
+    def __init__(self, browser: ChromeBrowser, session_id: str = None):
+        super().__init__(browser, session_id)
+
+    def _retrieve_last_answer(self, time_out: int, n_tries: int = 3):
+        start_time = time()
+        last_answer = ""
+        for i in range(n_tries):
+            # TODO: check if this will wait for till the content is fully loaded
+            answer = self.browser.waiter.until(
+                EC.presence_of_all_elements_located(
+                    (By.CSS_SELECTOR, "model-response")
+                )
+            )[-1]
+            # TODO: how to get notified that the new message has fully arrived?
+            #  Now it is done by waiting and checking against the state of it
+            if len(answer.text) > len(last_answer):
+                last_answer = answer.text
+            else:
+                if time() - start_time > time_out:
+                    break
+            self.browser.wait(2)
+
+        return last_answer
+
+    def _validate_start_page_loaded(self, n_tries: int = 2):
+        for i in range(n_tries):
+            html_source = self.browser.driver.page_source
+            if 'class="chat-app' in html_source:
+                return
+            else:
+                self.browser.wait(5)
+
+        raise BrowserTimeOutError(
+            "Failed to start chat session. Page did not load correctly."
+        )
+
+    def _send_message(self, message: str):
+        editor_div = self.browser.waiter.until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, "div.input-area"))
+        )
+        editor_div.click()
+        self.browser.random_mouse_move(2)
+        self.browser.wait(1)
+
+        self.browser.driver.execute_script("""
+            arguments[0].focus();
+            document.execCommand('selectAll', false, null);
+            document.execCommand('insertText', false, arguments[1]);
+        """, editor_div, message)
+
+        send_button = self.browser.waiter.until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, "div.input-area button.send-button"))
+        )
+        send_button.click()
+        # Wait till the llm the first token, that when the div for the answer appears
+        # TODO: see a better way to wait for an answer
+        self.browser.wait(10)
+
+        # We assume that the answer's div is already present
+        answer = self._validate_message_sent()
+        # ToDo: create a datastruct for this
+        self.past_questions_answers.append({"message": message, "answer": answer})
+
+        return answer
+
     def pass_checks(self):
         """Click 'Stay logged out' link that needs to be clicked or something of this sort"""
         try:
@@ -277,24 +342,133 @@ class DeepSeek(LLMSession):
             raise BrowserStayLoggedOutFailed(e.__str__())
 
 
+class Qwen(LLMSession):
+    logging_file = "llm_browser_session_qwen.log"
+    llm_chat_url = "https://chat.qwen.ai"
+
+    def __init__(self, browser: ChromeBrowser, session_id: str = None):
+        super().__init__(browser, session_id)
+        self.email = (
+            os.environ.get("QWEN_EMAIL")
+            if os.environ.get("QWEN_EMAIL")
+            else None
+        )
+        self.password = (
+            os.environ.get("QWEN_PASSWORD")
+            if os.environ.get("QWEN_PASSWORD")
+            else None
+        )
+        if not self.email or not self.password:
+            raise ValueError(
+                "Qwen email and password must be set in environment variables."
+            )
+
+    def _validate_start_page_loaded(self):
+        self.browser.wait(3)
+        if "message-input" in self.browser.driver.page_source:
+            self.logger.info("Qweb chat page loaded successfully.")
+            self.browser.wait(1)
+            return
+        else:
+            raise LogInError(
+                "Failed to start chat session. Page did not load correctly."
+            )
+
+    def _retrieve_last_answer(self, time_out: int):
+        start_time = time()
+        last_answer = ""
+        while True:
+            answer = self.browser.waiter.until(
+                EC.presence_of_all_elements_located(
+                    (
+                        By.CLASS_NAME,
+                        "chat-response-message",
+                    )
+                )
+            )[-1]
+            if len(answer.text) > len(last_answer):
+                last_answer = answer.text
+            elif len(answer.text) == len(last_answer):
+                break
+            else:
+                if time() - start_time > time_out:
+                    break
+            sleep(1)
+
+        return last_answer
+
+    def _send_message(self, message: str):
+        xpath_locator = "//textarea[@placeholder='How can I help you today?']"
+        chat_input_textarea = self.browser.waiter.until(
+            EC.element_to_be_clickable((By.XPATH, xpath_locator))
+        )
+        chat_input_textarea.click()
+
+        if len(message) < 40000:
+            self.browser.driver.execute_script("""
+                arguments[0].focus();
+                document.execCommand('selectAll', false, null);
+                document.execCommand('insertText', false, arguments[1]);
+            """, chat_input_textarea, message)
+        else:
+            # This only works because there is interface setting "Paste Large Text as File"
+            pyperclip.copy(message)
+            ActionChains(self.browser.driver) \
+                .key_down(Keys.COMMAND) \
+                .send_keys('v') \
+                .key_up(Keys.COMMAND) \
+                .perform()
+            self.browser.wait(10)
+
+        chat_input_textarea.send_keys(Keys.ENTER)
+        # TODO: see a better way to wait for an answer
+        self.browser.wait(20) # qwen in thinking mode by default, thinks long time
+
+        answer = self._validate_message_sent()
+        # ToDo: create a datastruct for this
+        self.past_questions_answers.append({"message": message, "answer": answer})
+
+        return answer
+
+
 if __name__ == "__main__":
-    chrome_browser = ChromeBrowser("Default")
+    # chrome_browser = ChromeBrowser("Default")
 
-    closed_ai = ChatGPT(chrome_browser, session_id="closed_ai")
-    try:
-        closed_ai.send_message("Can you execute research for me?")
-        print(closed_ai.past_questions_answers[-1])
-        closed_ai.send_message("Can you go online for me")
-        print(closed_ai.past_questions_answers[-1])
-    except Exception as e:
-        print(f"An error occurred: {e}")
+    # closed_ai = ChatGPT(chrome_browser, session_id="closed_ai")
+    # try:
+    #     closed_ai.send_message("Can you execute research for me?")
+    #     print(closed_ai.past_questions_answers[-1])
+    #     closed_ai.send_message("Can you go online for me")
+    #     print(closed_ai.past_questions_answers[-1])
+    # except Exception as e:
+    #     print(f"An error occurred: {e}")
+    #
+    # deepseek = DeepSeek(chrome_browser, session_id="deep")
+    # try:
+    #     deepseek.send_message("What are you trained on?")
+    #     print(deepseek.past_questions_answers[-1])
+    #     deepseek.send_message("What is your latest knowledge cutoff?")
+    #     print(deepseek.past_questions_answers[-1])
+    # except Exception as e:
+    #     print(f"An error occurred: {e}")
 
-    deepseek = DeepSeek(chrome_browser, session_id="deep")
+    # from browser import ChromeBrowser, chrome_browser
+    # gemini = Gemini(chrome_browser, session_id="gemini")
+    # try:
+    #     gemini.send_message("What are you trained on?")
+    #     print(gemini.past_questions_answers[-1])
+    #     gemini.send_message("What is your latest knowledge cutoff?")
+    #     print(gemini.past_questions_answers[-1])
+    # except Exception as e:
+    #     print(f"An error occurred: {e}")
+
+    from browser import ChromeBrowser, chrome_browser
+    gemini = Qwen(chrome_browser, session_id="qwen")
     try:
-        deepseek.send_message("What are you trained on?")
-        print(deepseek.past_questions_answers[-1])
-        deepseek.send_message("What is your latest knowledge cutoff?")
-        print(deepseek.past_questions_answers[-1])
+        gemini.send_message("What are you trained on?")
+        print(gemini.past_questions_answers[-1])
+        gemini.send_message("What is your latest knowledge cutoff?")
+        print(gemini.past_questions_answers[-1])
     except Exception as e:
         print(f"An error occurred: {e}")
 

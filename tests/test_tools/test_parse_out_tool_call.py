@@ -1,8 +1,7 @@
 """
 uv run pytest tests/test_tools/test_parse_out_tool_call.py
 """
-import pytest
-from generalist.prompt_forming.openclaw.tool_calling import parse_out_tool_call
+from generalist.openclaw.tool_calling import parse_out_tool_call
 
 
 EXPECTED = {

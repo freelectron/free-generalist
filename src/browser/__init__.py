@@ -1,5 +1,5 @@
 from .browser import ChromeBrowser
-from .llms.session import ChatGPT, DeepSeek
+from .llms.session import ChatGPT, DeepSeek, Gemini, Qwen
 from .search.web import BraveBrowser
 
 # TODO: Find a better way to interact with the browser and pass it to the tool
@@ -11,3 +11,7 @@ BRAVE_SEARCH_SESSION = BraveBrowser(browser=chrome_browser, session_id="deep_web
 CHATGPT_SESSION = ChatGPT(chrome_browser, session_id="closed_ai")
 
 DEEPSEEK_SESSION = DeepSeek(chrome_browser, session_id="deep_seek")
+
+GEMINI_SESSION = Gemini(chrome_browser, session_id="gemini")
+
+QWEN_SESSION = Qwen(chrome_browser, session_id="qwen")
