@@ -31,7 +31,7 @@ def add_tool_directive(original_prompt: str) -> str:
     Modify prompt for llm to return an OpenClaw's tool call as a formated json.
     """
     prompt_delta = """
-IMPORTANT: If the user's request requires using one of the tools available in this prompt, respond with ONLY a JSON code block in the following format:
+IMPORTANT: IF AND ONLY IF the user's request requires using one of the tools available in this prompt, respond with ONLY a JSON code block in the following format:
 ```json
 {
     "function": {

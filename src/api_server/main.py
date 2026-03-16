@@ -35,7 +35,6 @@ def _build_full_request(request: Request, body: dict) -> dict:
         "client": request.client if request.client else None,
         "body": body,
     }
-    logger.info(f"INCOMING:\n{json.dumps(full_request, indent=2, ensure_ascii=False, default=str)}")
     return full_request
 
 
@@ -52,6 +51,8 @@ async def api_chat(request: Request):
     body = await request.json()
 
     full_request = _build_full_request(request, body)
+
+    logger.info(f"INCOMING:\n{json.dumps(full_request, indent=2, ensure_ascii=False, default=str)}")
     return await handle_api_chat(full_request)
 
 @app.get("/api/tags")

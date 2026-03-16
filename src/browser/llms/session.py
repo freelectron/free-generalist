@@ -74,7 +74,6 @@ class LLMSession:
         self._activate_chat_session()
         # TODO: this is suggestion from Claude, as a solution to error with non-BMP characters 
         message = "".join(c for c in message if ord(c) <= 0xFFFF)
-        #
         return self._send_message(message)
 
     def _send_message(self, message: str):
@@ -382,7 +381,7 @@ class Qwen(LLMSession):
                 EC.presence_of_all_elements_located(
                     (
                         By.CLASS_NAME,
-                        "chat-response-message",
+                        "qwen-chat-message",
                     )
                 )
             )[-1]
@@ -393,8 +392,17 @@ class Qwen(LLMSession):
             else:
                 if time() - start_time > time_out:
                     break
-            sleep(1)
+            self.browser.wait(2)
 
+        # Do one last try to retrieve the full answer
+        last_answer = self.browser.waiter.until(
+            EC.presence_of_all_elements_located(
+                (
+                    By.CLASS_NAME,
+                    "qwen-chat-message",
+                )
+            )
+        )[-1].text
         return last_answer
 
     def _send_message(self, message: str):

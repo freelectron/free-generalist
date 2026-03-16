@@ -17,7 +17,7 @@ from browser import CHATGPT_SESSION, GEMINI_SESSION, DEEPSEEK_SESSION, QWEN_SESS
 
 GEMINI_TINY_WINDOW = 32000
 CHAT_GPT_MAX_CHARACTERS = 62000
-MIX_DEEPSEEK_QWEN = 0.70
+MIX_DEEPSEEK_QWEN = 0.01
 
 
 def get_llm_response(query:str):
@@ -28,7 +28,7 @@ def get_llm_response(query:str):
     elif len(query) < CHAT_GPT_MAX_CHARACTERS:
         answer = CHATGPT_SESSION.send_message(query)
     else:
-        if random.random()  > MIX_DEEPSEEK_QWEN:
+        if random.random() > MIX_DEEPSEEK_QWEN:
             answer = DEEPSEEK_SESSION.send_message(query_modified)
         else:
             answer = QWEN_SESSION.send_message(query_modified)

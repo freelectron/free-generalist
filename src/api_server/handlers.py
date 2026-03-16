@@ -6,7 +6,7 @@ from fastapi.responses import StreamingResponse
 from clog import get_logger
 from generalist.openclaw.llm import get_llm_response
 
-logger = get_logger(__name__)
+logger = get_logger(__name__, simple=True)
 
 MODEL_NAME_OPENCLAW = 'web'
 
@@ -131,6 +131,8 @@ async def _api_chat_stream_answer(answer: str, tool: dict) -> AsyncGenerator[str
 
 async def handle_api_chat(req: dict):
     answer, tool = get_llm_response(str(req))
+
+    logger.info(f"[LLM] Output:\n{answer}\nTool:\n{tool}")
 
     # SSE = server side streaming
     if req["body"].get('stream'):

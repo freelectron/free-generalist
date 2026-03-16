@@ -5,6 +5,7 @@ from typing import Optional
 
 
 LOG_FORMAT = '%(asctime)s - %(name)s - %(funcName)s:%(lineno)d - %(levelname)s - %(message)s'
+SIMPLE_LOG_FORMAT = '%(asctime)s - %(message)s'
 
 
 def create_log_folder() -> str:
@@ -16,22 +17,22 @@ def create_log_folder() -> str:
 
     return debug_folder_path
 
-def create_file_handler(file_name: str):
+def create_file_handler(file_name: str, log_format: str = LOG_FORMAT):
     debug_folder_path = create_log_folder()
     file_name = file_name if file_name else f'{datetime.today().date().isoformat()}.log'
     file_path = os.path.join(debug_folder_path, file_name)
 
     file_handler = logging.FileHandler(file_path)
     file_handler.setLevel(logging.INFO)
-    file_formatter = logging.Formatter(LOG_FORMAT)
+    file_formatter = logging.Formatter(log_format)
     file_handler.setFormatter(file_formatter)
 
     return file_handler
 
-def create_console_handler():
+def create_console_handler(log_format: str):
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.DEBUG)
-    console_formatter = logging.Formatter(LOG_FORMAT)
+    console_formatter = logging.Formatter(log_format)
     console_handler.setFormatter(console_formatter)
 
     return console_handler
@@ -46,10 +47,11 @@ class CLogger(logging.Logger):
         self.removeHandler(self.file_handler)
         self.addHandler(self.console_handler)
 
-    def __init__(self, name:str, level:int, file_name:str):
+    def __init__(self, name:str, level:int, file_name:str, simple_logging_format: bool = False):
         super().__init__(name, level)
 
-        self.console_handler = create_console_handler()
+        log_format = SIMPLE_LOG_FORMAT if simple_logging_format else LOG_FORMAT
+        self.console_handler = create_console_handler(log_format)
         self.file_handler = create_file_handler(file_name)
 
         # Default is the console handler
@@ -82,7 +84,7 @@ class CLogger(logging.Logger):
         self.switch_to_console()
 
 
-def get_logger(name: str, file_name: Optional[str] = None):
+def get_logger(name: str, file_name: Optional[str] = None, simple: bool = False):
     level = logging.INFO
 
-    return CLogger(name=name, level=level, file_name=file_name)
+    return CLogger(name=name, level=level, file_name=file_name, simple_logging_format=simple)
