@@ -426,9 +426,12 @@ class Qwen(LLMSession):
                 .send_keys('v') \
                 .key_up(Keys.COMMAND) \
                 .perform()
-            self.browser.wait(10)
+            self.browser.wait(10) # wait till qwen loads the text as file
 
         chat_input_textarea.send_keys(Keys.ENTER)
+        self.browser.wait(1)
+        pyperclip.copy("")  # free clipboard
+        chat_input_textarea.send_keys(Keys.ENTER) # do again just in case?
         # TODO: see a better way to wait for an answer
         self.browser.wait(20) # qwen in thinking mode by default, thinks long time
 

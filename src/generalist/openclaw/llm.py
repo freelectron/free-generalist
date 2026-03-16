@@ -24,9 +24,9 @@ def get_llm_response(query:str):
     query_modified = add_tool_directive(query)
 
     if len(query) < GEMINI_TINY_WINDOW:
-        answer = GEMINI_SESSION.send_message(query)
+        answer = GEMINI_SESSION.send_message(query_modified)
     elif len(query) < CHAT_GPT_MAX_CHARACTERS:
-        answer = CHATGPT_SESSION.send_message(query)
+        answer = CHATGPT_SESSION.send_message(query_modified)
     else:
         if random.random() > MIX_DEEPSEEK_QWEN:
             answer = DEEPSEEK_SESSION.send_message(query_modified)
