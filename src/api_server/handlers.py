@@ -3,12 +3,24 @@ from typing import Any, AsyncGenerator
 import time
 from fastapi.responses import StreamingResponse
 
+from browser.llm_browser import LLMBrowser
 from clog import get_logger
-from generalist.openclaw.llm import get_llm_response
+from generalist.openclaw.tool_calling import add_tool_directive, parse_out_tool_call
+
 
 logger = get_logger(__name__, simple=True)
 
+
 MODEL_NAME_OPENCLAW = 'web'
+LLM_BROWSER = LLMBrowser()
+                                                                                                                                                                            
+                                                                                                                                                                            
+def get_llm_response(query: str):
+    query_modified = add_tool_directive(query)                                                                                                                              
+    answer = LLM_BROWSER.call(query_modified)                                                                                                                              
+    tool_call = parse_out_tool_call(answer)                                                                                                                                 
+    return answer, tool_call   
+
 
 def _chat_completions_sse_chunk(content: str, created: int) -> str:
     data = {

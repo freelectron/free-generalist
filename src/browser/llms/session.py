@@ -50,17 +50,16 @@ class LLMSession:
     def _retrieve_last_answer(self, time_out: int):
         raise NotImplementedError()
 
-    def _validate_message_sent(self, n_tries: int = 2):
+    def _validate_message_sent(self):
         last_answer_memory = ""
         last_answer_on_page = ""
-        for i in range(n_tries):
-            # ToDo: use a datastruct to access the answer attribute
-            last_answer_memory = (
-                self.past_questions_answers[-1]["answer"]
-                if self.past_questions_answers
-                else ""
-            )
-            last_answer_on_page = self._retrieve_last_answer(self.waiter_default_timeout)
+        # ToDo: use a datastruct to access the answer attribute
+        last_answer_memory = (
+            self.past_questions_answers[-1]["answer"]
+            if self.past_questions_answers
+            else ""
+        )
+        last_answer_on_page = self._retrieve_last_answer(self.waiter_default_timeout)
 
         # FixMe: this is a bad check to actually see if the message was sent
         if last_answer_memory == last_answer_on_page or last_answer_on_page == "":
@@ -70,14 +69,17 @@ class LLMSession:
         else:
             return last_answer_on_page
 
+    def _send_message(self, message: str):
+        raise NotImplementedError
+    
     def send_message(self, message: str):
         self._activate_chat_session()
         # TODO: this is suggestion from Claude, as a solution to error with non-BMP characters 
         message = "".join(c for c in message if ord(c) <= 0xFFFF)
         return self._send_message(message)
 
-    def _send_message(self, message: str):
-        raise NotImplementedError
+    def clean_chat_history(self):
+        pass 
 
 
 class ChatGPT(LLMSession):
@@ -385,7 +387,7 @@ class Qwen(LLMSession):
                     )
                 )
             )[-1]
-            if "Thinking" in answer.text[:50]:
+            if "Thinking" in answer.text[:50] and not "Thinking completed" in answer.text[:50]:  # LOL 
                 continue
             else:
                 if len(answer.text) > len(last_answer):
@@ -477,14 +479,15 @@ class Claude(LLMSession):
                     )
                 )
             )[-1]
-            if len(answer.text) > len(last_answer):
-                last_answer = answer.text
-            elif len(answer.text) == len(last_answer):
-                break
+            if len(answer.text)> 0:
+                if len(answer.text) > len(last_answer):
+                    last_answer = answer.text
+                else:
+                    break
             else:
                 if time() - start_time > time_out:
                     break
-            sleep(1)
+            self.browser.wait(2)
 
         return last_answer
 
@@ -540,18 +543,18 @@ class Mistral(LLMSession):
                 EC.presence_of_all_elements_located(
                     (
                         By.XPATH,
-                        "//div[@data-message-author-role='assistant']",
+                        '//div[@data-message-author-role="assistant"]',
                     )
                 )
             )[-1]
-            if len(last_answer) > 0 :
+            if len(answer.text) > 0 :
                 if len(answer.text) > len(last_answer):
                     last_answer = answer.text
                 else:
                     break
             if time() - start_time > time_out:
                 break
-            self.browser.wait(5)
+            self.browser.wait(2)
 
         return last_answer
 

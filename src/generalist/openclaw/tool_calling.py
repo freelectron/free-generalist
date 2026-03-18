@@ -106,8 +106,9 @@ def parse_out_tool_call(raw_llm_answer: str) -> dict | None:
     }
     ```
     """
-    json_match = re.search(r"json.*?(\{.*\})", raw_llm_answer, re.DOTALL)
     tool_call = None
+
+    json_match = re.search(r"json.*?(\{.*\})", raw_llm_answer, re.DOTALL | re.IGNORECASE)
     if json_match:
         tool_call = json.loads(json_match.group(1))
 
