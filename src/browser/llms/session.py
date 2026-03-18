@@ -544,14 +544,14 @@ class Mistral(LLMSession):
                     )
                 )
             )[-1]
-            if len(answer.text) > len(last_answer):
-                last_answer = answer.text
-            elif len(answer.text) == len(last_answer):
-                break
-            else:
-                if time() - start_time > time_out:
+            if len(last_answer) > 0 :
+                if len(answer.text) > len(last_answer):
+                    last_answer = answer.text
+                else:
                     break
-            sleep(1)
+            if time() - start_time > time_out:
+                break
+            self.browser.wait(5)
 
         return last_answer
 
