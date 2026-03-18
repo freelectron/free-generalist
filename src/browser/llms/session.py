@@ -233,7 +233,7 @@ class DeepSeek(LLMSession):
             else:
                 if time() - start_time > time_out:
                     break
-            sleep(1)
+            self.browser.wait(5)
 
         return last_answer
 
@@ -365,7 +365,7 @@ class Qwen(LLMSession):
     def _validate_start_page_loaded(self):
         self.browser.wait(3)
         if "message-input" in self.browser.driver.page_source:
-            self.logger.info("Qweb chat page loaded successfully.")
+            self.logger.info("Qwen chat page loaded successfully.")
             self.browser.wait(1)
             return
         else:
@@ -385,13 +385,14 @@ class Qwen(LLMSession):
                     )
                 )
             )[-1]
-            if len(answer.text) > len(last_answer):
-                last_answer = answer.text
-            elif len(answer.text) == len(last_answer):
-                break
+            if "Thinking" in answer.text[:50]:
+                continue
             else:
-                if time() - start_time > time_out:
-                    break
+                if len(answer.text) > len(last_answer):
+                    last_answer = answer.text
+                else:
+                    if time() - start_time > time_out:
+                        break
             self.browser.wait(2)
 
         # Do one last try to retrieve the full answer
@@ -428,12 +429,148 @@ class Qwen(LLMSession):
                 .perform()
             self.browser.wait(10) # wait till qwen loads the text as file
 
+        chat_input_textarea = self.browser.driver.find_element(By.XPATH, xpath_locator)
         chat_input_textarea.send_keys(Keys.ENTER)
         self.browser.wait(1)
         pyperclip.copy("")  # free clipboard
+        chat_input_textarea = self.browser.driver.find_element(By.XPATH, xpath_locator)
         chat_input_textarea.send_keys(Keys.ENTER) # do again just in case?
         # TODO: see a better way to wait for an answer
         self.browser.wait(20) # qwen in thinking mode by default, thinks long time
+
+        answer = self._validate_message_sent()
+        # ToDo: create a datastruct for this
+        self.past_questions_answers.append({"message": message, "answer": answer})
+
+        return answer
+
+
+class Claude(LLMSession):
+    logging_file = "llm_browser_session_claude.log"
+    llm_chat_url = "https://claude.ai/new"
+
+    def __init__(self, browser: ChromeBrowser, session_id: str = None):
+        super().__init__(browser, session_id)
+
+    def _validate_start_page_loaded(self, n_tries: int = 2):
+        self.browser.wait(2)
+        for i in range(n_tries):
+            html_source = self.browser.driver.page_source
+            if 'main-content' in html_source:
+                return
+            else:
+                self.browser.wait(2)
+
+        raise BrowserTimeOutError(
+            "Failed to start chat session. Page did not load correctly."
+        )
+
+    def _retrieve_last_answer(self, time_out: int):
+        start_time = time()
+        last_answer = ""
+        while True:
+            answer = self.browser.waiter.until(
+                EC.presence_of_all_elements_located(
+                    (
+                        By.CSS_SELECTOR,
+                        ".font-claude-response",
+                    )
+                )
+            )[-1]
+            if len(answer.text) > len(last_answer):
+                last_answer = answer.text
+            elif len(answer.text) == len(last_answer):
+                break
+            else:
+                if time() - start_time > time_out:
+                    break
+            sleep(1)
+
+        return last_answer
+
+    def _send_message(self, message: str):
+        css_selector = "//*[@data-testid='chat-input']"
+        chat_input_textarea = self.browser.waiter.until(
+            EC.element_to_be_clickable((By.XPATH, css_selector))
+        )
+        chat_input_textarea.click()
+
+        self.browser.driver.execute_script("""
+            arguments[0].focus();
+            document.execCommand('selectAll', false, null);
+            document.execCommand('insertText', false, arguments[1]);
+        """, chat_input_textarea, message)
+
+        chat_input_textarea.send_keys(Keys.ENTER)
+        # TODO: see a better way to wait for an answer
+        self.browser.wait(15)
+
+        answer = self._validate_message_sent()
+        # ToDo: create a datastruct for this
+        self.past_questions_answers.append({"message": message, "answer": answer})
+
+        return answer
+
+
+class Mistral(LLMSession):
+    logging_file = "llm_browser_session_mistral.log"
+    llm_chat_url = "https://chat.mistral.ai/chat"
+
+    def __init__(self, browser: ChromeBrowser, session_id: str = None):
+        super().__init__(browser, session_id)
+
+    def _validate_start_page_loaded(self, n_tries: int = 2):
+        self.browser.wait(2)
+        for i in range(n_tries):
+            html_source = self.browser.driver.page_source
+            if '@container/chat-input-row' in html_source:
+                return
+            else:
+                self.browser.wait(2)
+
+        raise BrowserTimeOutError(
+            "Failed to start chat session. Page did not load correctly."
+        )
+
+    def _retrieve_last_answer(self, time_out: int):
+        start_time = time()
+        last_answer = ""
+        while True:
+            answer = self.browser.waiter.until(
+                EC.presence_of_all_elements_located(
+                    (
+                        By.XPATH,
+                        "//div[@data-message-author-role='assistant']",
+                    )
+                )
+            )[-1]
+            if len(answer.text) > len(last_answer):
+                last_answer = answer.text
+            elif len(answer.text) == len(last_answer):
+                break
+            else:
+                if time() - start_time > time_out:
+                    break
+            sleep(1)
+
+        return last_answer
+
+    def _send_message(self, message: str):
+        xpath_selector = "//div[@contenteditable='true' and contains(@class, 'ProseMirror')]"
+        chat_input_textarea = self.browser.waiter.until(
+            EC.element_to_be_clickable((By.XPATH, xpath_selector))
+        )
+        chat_input_textarea.click()
+
+        self.browser.driver.execute_script("""
+            arguments[0].focus();
+            document.execCommand('selectAll', false, null);
+            document.execCommand('insertText', false, arguments[1]);
+        """, chat_input_textarea, message)
+
+        chat_input_textarea.send_keys(Keys.ENTER)
+        # TODO: see a better way to wait for an answer
+        self.browser.wait(15)
 
         answer = self._validate_message_sent()
         # ToDo: create a datastruct for this
@@ -473,14 +610,35 @@ if __name__ == "__main__":
     # except Exception as e:
     #     print(f"An error occurred: {e}")
 
+    # from browser import ChromeBrowser, chrome_browser
+    # gemini = Qwen(chrome_browser, session_id="qwen")
+    # try:
+    #     gemini.send_message("What are you trained on?")
+    #     print(gemini.past_questions_answers[-1])
+    #     gemini.send_message("What is your latest knowledge cutoff?")
+    #     print(gemini.past_questions_answers[-1])
+    # except Exception as e:
+    #     print(f"An error occurred: {e}")
+
+    # from browser import ChromeBrowser, chrome_browser
+    # claude = Claude(chrome_browser, session_id="qwen")
+    # try:
+    #     claude.send_message("What are you trained on?")
+    #     print(claude.past_questions_answers[-1])
+    #     claude.send_message("What is your latest knowledge cutoff?")
+    #     print(claude.past_questions_answers[-1])
+    # except Exception as e:
+    #     print(f"An error occurred: {e}")
+
     from browser import ChromeBrowser, chrome_browser
-    gemini = Qwen(chrome_browser, session_id="qwen")
+    mistral = Mistral(chrome_browser, session_id="qwen")
     try:
-        gemini.send_message("What are you trained on?")
-        print(gemini.past_questions_answers[-1])
-        gemini.send_message("What is your latest knowledge cutoff?")
-        print(gemini.past_questions_answers[-1])
+        mistral.send_message("What are you trained on?")
+        print(mistral.past_questions_answers[-1])
+        mistral.send_message("What is your latest knowledge cutoff?")
+        print(mistral.past_questions_answers[-1])
     except Exception as e:
         print(f"An error occurred: {e}")
+
 
     sleep(360)
