@@ -1,7 +1,7 @@
 import json
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
 
 from .handlers import (
     handle_chat_completions,

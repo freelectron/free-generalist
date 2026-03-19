@@ -583,7 +583,11 @@ class Mistral(LLMSession):
 
 
 if __name__ == "__main__":
-    # chrome_browser = ChromeBrowser("Default")
+    import dotenv
+    dotenv.load_dotenv()
+
+    chrome_browser = ChromeBrowser()
+    assert chrome_browser.chrome_user_data_dir.startswith("/User")
 
     # closed_ai = ChatGPT(chrome_browser, session_id="closed_ai")
     # try:
@@ -623,25 +627,26 @@ if __name__ == "__main__":
     # except Exception as e:
     #     print(f"An error occurred: {e}")
 
-    # from browser import ChromeBrowser, chrome_browser
-    # claude = Claude(chrome_browser, session_id="qwen")
-    # try:
-    #     claude.send_message("What are you trained on?")
-    #     print(claude.past_questions_answers[-1])
-    #     claude.send_message("What is your latest knowledge cutoff?")
-    #     print(claude.past_questions_answers[-1])
-    # except Exception as e:
-    #     print(f"An error occurred: {e}")
+    from browser import ChromeBrowser
 
-    from browser import ChromeBrowser, chrome_browser
-    mistral = Mistral(chrome_browser, session_id="qwen")
+    claude = Claude(chrome_browser, session_id="qwen")
     try:
-        mistral.send_message("What are you trained on?")
-        print(mistral.past_questions_answers[-1])
-        mistral.send_message("What is your latest knowledge cutoff?")
-        print(mistral.past_questions_answers[-1])
+        claude.send_message("What are you trained on?")
+        print(claude.past_questions_answers[-1])
+        claude.send_message("What is your latest knowledge cutoff?")
+        print(claude.past_questions_answers[-1])
     except Exception as e:
         print(f"An error occurred: {e}")
+    #
+    # from browser import ChromeBrowser, chrome_browser
+    # mistral = Mistral(chrome_browser, session_id="qwen")
+    # try:
+    #     mistral.send_message("What are you trained on?")
+    #     print(mistral.past_questions_answers[-1])
+    #     mistral.send_message("What is your latest knowledge cutoff?")
+    #     print(mistral.past_questions_answers[-1])
+    # except Exception as e:
+    #     print(f"An error occurred: {e}")
 
 
     sleep(360)

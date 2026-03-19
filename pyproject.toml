@@ -31,6 +31,7 @@ dependencies = [
     "ollama>=0.6.1",
     "openpyxl>=3.1.5", # for pandas to read xls
     "pyperclip>=1.11.0",
+    "tiktoken>=0.12.0",
 ]
 
 [dependency-groups]

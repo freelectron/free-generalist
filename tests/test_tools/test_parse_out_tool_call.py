@@ -79,6 +79,19 @@ dff {
 }
 """
 
+CAPITAL_LETTER = """
+Here is the tool call:
+# JSON
+dff {
+    "function": {
+        "name": "cron",
+        "arguments": {
+            "action": "add"
+        }
+    }
+}
+"""
+
 def test_clean_block():
     result = parse_out_tool_call(CLEAN_BLOCK)
     assert result == EXPECTED
@@ -110,3 +123,7 @@ def test_same_line():
 def test_no_back_ticks():
     result = parse_out_tool_call(NO_BACK_TICKS)
     assert result == EXPECTED, (result , EXPECTED)
+
+def test_capital_letter():
+    result = parse_out_tool_call(CAPITAL_LETTER)
+    assert result == EXPECTED, (result, EXPECTED)
