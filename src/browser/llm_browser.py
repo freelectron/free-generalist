@@ -13,8 +13,8 @@ from clog import get_logger
                                                                                                                                                                             
                                                                                                                                                                             
 SMALL_CONTEXT_THRESHOLD = 32000                                                                                                                                             
-INITIAL_TOKENS = 100                                                                                                                                                        
-PENALTY_TOKENS = 10                                                                                                                                                         
+INITIAL_TOKENS = 5
+PENALTY_TOKENS = 1
 TIMEOUT_HOURS = 4    
 
 
