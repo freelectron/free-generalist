@@ -19,7 +19,7 @@ from clog import get_logger
 
 class LLMSession:
     llm_chat_url = None
-    waiter_default_timeout = 45
+    waiter_default_timeout = 60
 
     def __init__(self, browser: ChromeBrowser, session_id: str):
         self.logger = get_logger(name=self.__class__.__name__)
@@ -235,7 +235,7 @@ class DeepSeek(LLMSession):
             else:
                 if time() - start_time > time_out:
                     break
-            self.browser.wait(5)
+            self.browser.wait(3)
 
         return last_answer
 
@@ -395,7 +395,7 @@ class Qwen(LLMSession):
                 else:
                     if time() - start_time > time_out:
                         break
-            self.browser.wait(2)
+            self.browser.wait(4)
 
         # Do one last try to retrieve the full answer
         last_answer = self.browser.waiter.until(
@@ -554,7 +554,7 @@ class Mistral(LLMSession):
                     break
             if time() - start_time > time_out:
                 break
-            self.browser.wait(2)
+            self.browser.wait(5)
 
         return last_answer
 

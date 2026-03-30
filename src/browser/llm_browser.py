@@ -13,7 +13,7 @@ from clog import get_logger
                                                                                                                                                                             
                                                                                                                                                                             
 SMALL_CONTEXT_THRESHOLD = 32000                                                                                                                                             
-INITIAL_TOKENS = 5
+INITIAL_TOKENS = 3
 PENALTY_TOKENS = 1
 TIMEOUT_HOURS = 4    
 
@@ -100,7 +100,7 @@ class LLMBrowser:
         """                                                                                                                                                                 
         Try each session in pool in order. On success rotate it to the end.                                                                                                 
         On failure apply penalty; if tokens < 0 move to timeout queue.                                                                                                      
-        Raises RuntimeError if all sessions fail.                                                                                                                           
+        Raises RuntimeError if all sessions fail.
         """                                                                                                                                                                 
         for entry in list(pool):                                                                                                                                            
             session, token_credit = entry
