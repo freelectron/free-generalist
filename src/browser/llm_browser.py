@@ -39,12 +39,10 @@ class LLMBrowser:
 
     def record_token_count_in(self, text:str):
         n_tokens = len(self.estimattion_n_token_encoding.encode(text))
-        # Keep track of tokens
         mlflow.log_metric( self.tokens_count_in_metric_name, n_tokens, step=self.n_call)
     
     def record_token_count_out(self, text:str):
         n_tokens = len(self.estimattion_n_token_encoding.encode(text))
-        # Keep track of tokens
         mlflow.log_metric( self.tokens_count_out_metric_name, n_tokens, step=self.n_call)
 
     def __init__(self):
@@ -70,7 +68,7 @@ class LLMBrowser:
         self.CLAUDE_SESSION = Claude(chrome_browser, session_id="claude")                                                                                                                
         self.MISTRAL_SESSION = Mistral(chrome_browser, session_id="mistral")      
 
-        # list of [session, tokens] — mutable so token credit updates in-place                                                                                              
+        # list of [session, tokens] - mutable so token credit updates in-place
         long_sessions = self.create_long_message_sessions()                                                                                                                 
         self.long_sessions: list[list] = [                                                                                                                                  
             [s, INITIAL_TOKENS] for s in long_sessions                                                                                                                      
@@ -79,7 +77,7 @@ class LLMBrowser:
         self.small_sessions: list[list] = [                                                                                                                                 
             [s, INITIAL_TOKENS] for s in small_sessions                                                                                                                     
         ]                                                                                                                                                                   
-        # FIFO queue of (session, release_time, pool_name) — pool_name is "long" or "small"                                                                                 
+        # FIFO queue of (session, release_time, pool_name) - pool_name is "long" or "small"
         self.timeout_queue: deque[tuple[LLMSession, float, str]] = deque()                                                                                                  
                                                                                                                                                                             
     def _release_timed_out_sessions(self):                                                                                                                                  
@@ -124,15 +122,12 @@ class LLMBrowser:
         raise RuntimeError("All LLM sessions failed.")                                                                                                                      
                                                                                                                                                                             
     def call(self, message: str) -> str:
-        # with mlflow.start_run(self.log_run_name):
-            self._release_timed_out_sessions()
+        self._release_timed_out_sessions()
+        logger.info(f"Queue for calling LLM's with long message window: {[(type(sesh).__name__,tk_credit) for sesh,tk_credit in self.long_sessions]}")
+        if len(message) < SMALL_CONTEXT_THRESHOLD and self.small_sessions:
+            return self._try_sessions(self.small_sessions, message)
 
-            logger.info(f"Queue for calling LLM's with long message window: {[(type(sesh).__name__,tk_credit) for sesh,tk_credit in self.long_sessions]}")
-
-            if len(message) < SMALL_CONTEXT_THRESHOLD and self.small_sessions:
-                return self._try_sessions(self.small_sessions, message)
-
-            return self._try_sessions(self.long_sessions, message)
+        return self._try_sessions(self.long_sessions, message)
 
 
 if __name__ == "__main__":

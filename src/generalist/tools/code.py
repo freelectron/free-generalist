@@ -1,7 +1,7 @@
 import subprocess
 import sys
 
-from ..models.core import local_llm_with_mlflow
+from ..models.core import llm
 from clog import get_logger
 
 
@@ -112,7 +112,7 @@ Requirements:
 Return ONLY the Python code, without any additional explanation or markdown formatting."""
 
     try:
-        response = local_llm_with_mlflow.complete(prompt)
+        response = llm.complete(prompt)
 
         code = response.text.strip()
         if code.startswith("```python"):

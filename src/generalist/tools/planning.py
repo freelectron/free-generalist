@@ -1,7 +1,7 @@
 import json
 
 from ..agents.core import AgentDeepWebSearch, AgentUnstructuredDataProcessor, AgentPlan, AgentCodeWriterExecutor
-from ..models.core import local_llm_with_mlflow
+from ..models.core import llm
 from clog import get_logger
 
 
@@ -43,7 +43,7 @@ Examples:
 {{"link": "file:///home/user/data/sales.csv"}}
 {{}}
 """
-    task_response = local_llm_with_mlflow.complete(prompt)
+    task_response = llm.complete(prompt)
 
     return json.loads(task_response.text)
 
@@ -100,7 +100,7 @@ REMEMBER:
 - If you're tempted to use "and", stop - you're doing multiple steps
 - Output only the IMMEDIATE next step, not a sequence of steps
 """
-    response = local_llm_with_mlflow.complete(planning_prompt)
+    response = llm.complete(planning_prompt)
     response_text = response.text.strip()
     logger.info(f"Raw output: {response_text}")
     escaped_response_text = response_text.translate(str.maketrans({"\\":  r"\\"}))

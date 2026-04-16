@@ -2,7 +2,7 @@ import json
 import regex as re
 
 from .data_model import ShortAnswer, AgentRunSummary
-from ..models.core import local_llm_with_mlflow
+from ..models.core import llm
 from clog import get_logger
 
 
@@ -51,7 +51,7 @@ IMPORTANT RULES:
 - Base your response strictly on the provided information without adding external knowledge
     """
 
-    llm_response = local_llm_with_mlflow.complete(prompt)
+    llm_response = llm.complete(prompt)
     response_text = llm_response.text
     response_text = response_text.strip()
 
@@ -110,7 +110,7 @@ def construct_task_completion(task: str, context: str, agent_capability: str) ->
     }}
     """
 
-    llm_response = local_llm_with_mlflow.complete(prompt)
+    llm_response = llm.complete(prompt)
     response_text = llm_response.text.strip()
 
     json_match = re.search(r"```json\n(.*?)```", response_text, re.DOTALL)
@@ -149,7 +149,7 @@ def summarise_findings(task: str, context: str) -> ShortAnswer:
     Extract (copy-paste) the information that might be needed for the task: {task}.
     """
 
-    llm_response = local_llm_with_mlflow.complete(prompt)
+    llm_response = llm.complete(prompt)
     response_text = llm_response.text.strip()
 
     logger.info(f"From `summarise_findings`:\n{response_text}.")

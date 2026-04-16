@@ -1,7 +1,7 @@
 """
 uv run pytest tests/test_tools/test_parse_out_tool_call.py
 """
-from generalist.openclaw.tool_calling import parse_out_tool_call
+from generalist.prompt_modifiers.utils import parse_out_tool_call
 
 
 EXPECTED = {

@@ -3,7 +3,7 @@ from typing import Literal
 from langchain_text_splitters import CharacterTextSplitter
 
 from browser import CHATGPT_SESSION, DEEPSEEK_SESSION
-from generalist.models.core import local_llm_with_mlflow
+from generalist.models.core import llm
 from clog import get_logger
 from generalist.tools.text_processing.utils import parse_config
 
@@ -40,7 +40,7 @@ def _process_chunk_local(task: str, text: str) -> str:
     **IMPORTANT**: If the text does not include the SPECIFIC information required for the task, output "NOT FOUND".
     Otherwise, provide the direct answer.
     """
-    llm_result = local_llm_with_mlflow.complete(prompt)
+    llm_result = llm.complete(prompt)
     return llm_result.text
 
 

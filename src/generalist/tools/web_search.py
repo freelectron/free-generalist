@@ -5,12 +5,14 @@ import requests
 from bs4 import BeautifulSoup
 import httpx
 
-from browser import BRAVE_SEARCH_SESSION
 from browser.search.web import BraveBrowser
 from ..tools.data_model import Message, WebSearchResult
-from ..models.core import local_llm_with_mlflow
+from ..models.core import llm
 from clog import get_logger
 
+
+# TODO: do not use global search session or give it as a param somehow
+brave_search_session: BraveBrowser = None
 
 NOT_FOUND_LITERAL = "N/A"
 logger = get_logger(__name__)
@@ -43,7 +45,7 @@ def _question_to_queries(question: str, max_queries: int = 1) -> list[str]:
 
     START NOW:
     """
-    llm_response = local_llm_with_mlflow.complete(prompt)
+    llm_response = llm.complete(prompt)
     response_text = llm_response.text
 
     queries = response_text.strip().split("|")
@@ -145,6 +147,7 @@ def web_search(question: str) -> list[dict[str, str|WebSearchResult]]:
 
     Args:
         question: The user's question.
+        brave_search_session: browser web search to use.
 
     Returns:
         A list of WebResource objects, with their 'content' field populated with the content of webpage.
@@ -159,7 +162,7 @@ def web_search(question: str) -> list[dict[str, str|WebSearchResult]]:
 
     all_sources = []
     for query in candidate_queries:
-        raw_search_results_for_query = BRAVE_SEARCH_SESSION.search(query, links_per_query)
+        raw_search_results_for_query = brave_search_session.search(query, links_per_query)
         search_results_for_query = parse_web_browser_search_results(raw_search_results_for_query)
         all_sources.extend(search_results_for_query)
 
