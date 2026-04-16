@@ -8,7 +8,7 @@ import httpx
 from browser import BRAVE_SEARCH_SESSION
 from browser.search.web import BraveBrowser
 from ..tools.data_model import Message, WebSearchResult
-from ..models.core import llm
+from ..models.core import local_llm_with_mlflow
 from clog import get_logger
 
 
@@ -43,7 +43,7 @@ def _question_to_queries(question: str, max_queries: int = 1) -> list[str]:
 
     START NOW:
     """
-    llm_response = llm.complete(prompt)
+    llm_response = local_llm_with_mlflow.complete(prompt)
     response_text = llm_response.text
 
     queries = response_text.strip().split("|")

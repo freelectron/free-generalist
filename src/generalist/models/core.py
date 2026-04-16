@@ -9,7 +9,7 @@ from clog import get_logger
 
 logger = get_logger(__name__)
 REQUEST_TIMEOUT = 180
-MODEL_NAME = "qwen2.5:14b"
+LOCAL_MODEL_NAME = "qwen2.5:14b"
 
 
 class LLMToolCall:
@@ -105,9 +105,9 @@ class MLFlowLLMWrapper:
             return response
 
 
-llm = MLFlowLLMWrapper(
+local_llm_with_mlflow = MLFlowLLMWrapper(
     LLM(
-        model=MODEL_NAME,
+        model=LOCAL_MODEL_NAME,
         request_timeout=REQUEST_TIMEOUT,
     )
 )

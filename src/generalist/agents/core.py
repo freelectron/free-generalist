@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 from .workflows.workflow_coder import CodeWriterExecutorWorkflow
 from .workflows.workflow_web_search import DeepWebSearchWorkflow
-from ..models.core import llm
+from ..models.core import local_llm_with_mlflow
 from ..tools.text_processing.text_processing import process_text
 from ..tools.data_model import Message
 from clog import get_logger
@@ -55,7 +55,7 @@ class AgentDeepWebSearch(BaseAgent):
         agent_workflow = DeepWebSearchWorkflow(
             name=self.name,
             agent_capability=self.capability,
-            llm=llm,
+            llm=local_llm_with_mlflow,
             context=[],
             task=self.activity,
         )
@@ -110,7 +110,7 @@ class AgentCodeWriterExecutor(BaseAgent):
         agent_workflow = CodeWriterExecutorWorkflow(
             name=self.name,
             agent_capability=self.capability,
-            llm=llm,
+            llm=local_llm_with_mlflow,
             context=resources,
             task=self.activity,
         )
