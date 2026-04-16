@@ -127,6 +127,7 @@ def construct_task_completion(task: str, context: str, agent_capability: str) ->
 
     return AgentRunSummary(
         completed=True if data.get("done") in ["True", "true", "yes", "1"] else False,
+        # FIXME: summary is not being used anywhere, at least log it? 
         summary=data.get("summary", "did-not-parse"),
     )
 
