@@ -1,8 +1,10 @@
 import json
 from contextlib import asynccontextmanager
+from typing import Annotated
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends
 
+from generalist.models.core import LLMOpenClaw
 from .handlers import (
     handle_chat_completions,
     handle_models_list,
@@ -16,14 +18,24 @@ logger = get_logger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Treat llm browser as a DB/RPC connection"""
+    llm = LLMOpenClaw()
+    assert llm
+    app.state.llm = llm
     yield
+    del llm
 
+def get_llm(request: Request) -> LLMOpenClaw:
+    return request.app.state.llm
+
+LLMDep = Annotated[LLMOpenClaw, Depends(get_llm)]
 
 app = FastAPI(
     title="OpenAI-Compatible API",
     version="1.0.0",
     lifespan=lifespan,
 )
+
 
 def _build_full_request(request: Request, body: dict) -> dict:
     full_request = {
@@ -39,21 +51,22 @@ def _build_full_request(request: Request, body: dict) -> dict:
 
 
 @app.post("/v1/chat/completions")
-async def chat_completions(request: Request):
+async def chat_completions(request: Request, llm: LLMDep):
     body = await request.json()
 
     full_request = _build_full_request(request, body)
-    return await handle_chat_completions(full_request)
+    return await handle_chat_completions(full_request, llm)
 
 
 @app.post("/api/chat")
-async def api_chat(request: Request):
+async def api_chat(request: Request,  llm: LLMDep):
     body = await request.json()
 
     full_request = _build_full_request(request, body)
 
     logger.info(f"INCOMING:\n{json.dumps(full_request, indent=2, ensure_ascii=False, default=str)}")
-    return await handle_api_chat(full_request)
+    return await handle_api_chat(full_request, llm)
+
 
 @app.get("/api/tags")
 async def api_tags():
@@ -78,6 +91,7 @@ async def api_tags():
             },
         ]
     }
+
 
 @app.get("/v1/models")
 async def models_list():

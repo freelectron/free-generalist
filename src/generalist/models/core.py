@@ -1,10 +1,9 @@
 import inspect
 from abc import ABC
-from typing import Callable, get_origin, List, Union, get_args, get_type_hints
+from typing import Callable, get_origin, Union, get_args, get_type_hints
 
 import ollama
 import mlflow
-from openai.types.beta.threads.runs import tool_call_delta_object
 
 from browser.llm_browser import LLMBrowser
 from clog import get_logger
@@ -13,7 +12,7 @@ from generalist.prompt_modifiers.utils import parse_out_tool_call
 
 logger = get_logger(__name__)
 REQUEST_TIMEOUT = 180
-LOCAL_MODEL_NAME = "qwen2.5:14b"
+LOCAL_OLLAMA_QWEN_MODEL_NAME = "qwen2.5:14b"
 
 
 class LLMToolCall:
@@ -44,6 +43,21 @@ class LLMBase(ABC):
         If yes, calls the tool and returns the result.
         """
         raise NotImplementedError
+
+
+class LLMOpenClaw(LLMBase):
+    def __init__(self):
+        self.llm = LLMBrowser()
+
+    def complete(self, prompt: str, *args, **kwargs):
+        return self.llm.call(prompt)
+
+    def complete_with_tools(self, prompt: str):
+        prompt_modified = add_tool_directive(prompt)
+        answer = self.complete(prompt_modified)
+        tool_call = parse_out_tool_call(answer)
+
+        return answer, tool_call
 
 
 class LLMBrowserWithTools(LLMBase):
@@ -113,20 +127,16 @@ class LLMBrowserWithTools(LLMBase):
         }
 
     def __init__(self):
-        self.llm_web = LLMBrowser()
+        self.llm = LLMBrowser()
 
     def complete(self, prompt: str, *args, **kwargs):
-        return self.llm_web.call(message=prompt)
+        return self.llm.call(message=prompt)
 
     def predict_and_call(self, prompt: str, tools: list[Callable], *args, **kwargs):
         tool_descriptions = [self.callable_to_tool(tool) for tool in tools]
         prompt += f"\nAvailable Tools:{tool_descriptions}"
-
-        # TODO: delete me
-        print("!!!!!\n", prompt)
-
         prompt_formatted = add_tool_directive(prompt)
-        answer = self.llm_web.call(message=prompt_formatted)
+        answer = self.complete(prompt=prompt_formatted)
 
         tool_call = parse_out_tool_call(answer)
         if tool_call:
@@ -231,5 +241,5 @@ llm = LLMBrowserWithTools()
 
 if __name__=="__main__":
     from generalist.tools import write_code
-    llm = LLMBrowserWithTools()
+    # llm = LLMBrowserWithTools()
     llm.predict_and_call("Write a hello world ", [write_code])

@@ -3,27 +3,14 @@ from typing import Any, AsyncGenerator
 import time
 from fastapi.responses import StreamingResponse
 
-from browser.llm_browser import LLMBrowser
 from clog import get_logger
-from generalist.prompt_modifiers.openclaw_tool_call import add_tool_directive
-from generalist.prompt_modifiers.utils import parse_out_tool_call
+from generalist.models.core import LLMOpenClaw
 
 
 logger = get_logger(__name__, simple=True)
-
-
 MODEL_NAME_OPENCLAW = 'web'
-LLM_BROWSER = LLMBrowser()
                                                                                                                                                                             
                                                                                                                                                                             
-def get_llm_response_openclaw(query: str):
-    """We add openclaw specific prompt"""
-    query_modified = add_tool_directive(query)                                                                                                                              
-    answer = LLM_BROWSER.call(query_modified)                                                                                                                              
-    tool_call = parse_out_tool_call(answer)                                                                                                                                 
-    return answer, tool_call   
-
-
 def _chat_completions_sse_chunk(content: str, created: int) -> str:
     data = {
         'id': 'chatcmpl-123',
@@ -57,8 +44,8 @@ async def _chat_completions_stream_answer(answer: str) -> AsyncGenerator[str, No
         yield _chat_completions_sse_chunk(answer[i:i + chunk_size], created)
     yield _chat_completions_sse_done(created)
 
-async def handle_chat_completions(req: dict[str, Any]):
-    answer, tool = get_llm_response_openclaw(str(req))
+async def handle_chat_completions(req: dict[str, Any], llm: LLMOpenClaw):
+    answer, tool = llm.complete_with_tools(str(req))
 
     if tool:
         raise NotImplementedError("Calling ClosedAI API with tools is not implemented.")
@@ -143,8 +130,8 @@ async def _api_chat_stream_answer(answer: str, tool: dict) -> AsyncGenerator[str
 
     yield _api_chat_sse_done(created)
 
-async def handle_api_chat(req: dict):
-    answer, tool = get_llm_response_openclaw(str(req))
+async def handle_api_chat(req: dict, llm: LLMOpenClaw):
+    answer, tool = llm.complete_with_tools(str(req))
 
     logger.info(f"[LLM] Output:\n{answer}\nTool:\n{tool}")
 

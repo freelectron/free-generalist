@@ -48,6 +48,10 @@ class LLMBrowser:
     def __init__(self):
         # TODO: make it nicer
         assert os.getenv("CHROME_USER_DATA_DIR")
+
+        # TODO: DELETE
+        print("I AM HERE")
+
         chrome_browser = ChromeBrowser()
 
         # Monitoring
@@ -57,28 +61,28 @@ class LLMBrowser:
         mlflow.start_run(run_name=f"{self.log_run_name}")
         self.tokens_count_in_metric_name = "tokens_in_estimate"
         self.tokens_count_out_metric_name = "tokens_out_estimate"
-        self.estimattion_n_token_encoding = tiktoken.encoding_for_model("gpt-4o")                   
-        # Number of calls to llms we made                                                                                                                                                 
-        self.n_call = 0 
+        self.estimattion_n_token_encoding = tiktoken.encoding_for_model("gpt-4o")
+        # Number of calls to llms we made
+        self.n_call = 0
 
-        self.CHATGPT_SESSION = ChatGPT(chrome_browser, session_id="closed_ai")                                                                                                           
-        self.DEEPSEEK_SESSION = DeepSeek(chrome_browser, session_id="deep_seek")                                                                                                         
-        self.GEMINI_SESSION = Gemini(chrome_browser, session_id="gemini")                                                                                                                
-        self.QWEN_SESSION = Qwen(chrome_browser, session_id="qwen")                                                                                                                      
-        self.CLAUDE_SESSION = Claude(chrome_browser, session_id="claude")                                                                                                                
-        self.MISTRAL_SESSION = Mistral(chrome_browser, session_id="mistral")      
+        self.CHATGPT_SESSION = ChatGPT(chrome_browser, session_id="closed_ai")
+        self.DEEPSEEK_SESSION = DeepSeek(chrome_browser, session_id="deep_seek")
+        self.GEMINI_SESSION = Gemini(chrome_browser, session_id="gemini")
+        self.QWEN_SESSION = Qwen(chrome_browser, session_id="qwen")
+        self.CLAUDE_SESSION = Claude(chrome_browser, session_id="claude")
+        self.MISTRAL_SESSION = Mistral(chrome_browser, session_id="mistral")
 
         # list of [session, tokens] - mutable so token credit updates in-place
-        long_sessions = self.create_long_message_sessions()                                                                                                                 
-        self.long_sessions: list[list] = [                                                                                                                                  
-            [s, INITIAL_TOKENS] for s in long_sessions                                                                                                                      
-        ]                                                                                                                                                                   
-        small_sessions = self.create_small_message_sessions()                                                                                                               
-        self.small_sessions: list[list] = [                                                                                                                                 
-            [s, INITIAL_TOKENS] for s in small_sessions                                                                                                                     
-        ]                                                                                                                                                                   
+        long_sessions = self.create_long_message_sessions()
+        self.long_sessions: list[list] = [
+            [s, INITIAL_TOKENS] for s in long_sessions
+        ]
+        small_sessions = self.create_small_message_sessions()
+        self.small_sessions: list[list] = [
+            [s, INITIAL_TOKENS] for s in small_sessions
+        ]
         # FIFO queue of (session, release_time, pool_name) - pool_name is "long" or "small"
-        self.timeout_queue: deque[tuple[LLMSession, float, str]] = deque()                                                                                                  
+        self.timeout_queue: deque[tuple[LLMSession, float, str]] = deque()
                                                                                                                                                                             
     def _release_timed_out_sessions(self):                                                                                                                                  
         """Move sessions whose timeout has expired back to their original pool."""                                                                                          
