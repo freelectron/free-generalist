@@ -31,13 +31,16 @@ class LLMBase(ABC):
     """
     Base class for interacting with LLM API's.
     """
-    def complete(self, prompt: str, *args, **kwargs):
+    # TODO: replace in the children
+    model: str  = "placeholder"
+
+    def complete(self, prompt: str, *args, **kwargs) -> LLMResponse:
         """
         Just answer the prompt
         """
         raise NotImplementedError
 
-    def predict_and_call(self, prompt: str, tools: list[Callable], *args, **kwargs):
+    def predict_and_call(self, prompt: str, tools: list[Callable], *args, **kwargs) -> LLMResponse:
         """
         First predicts if we need to use a tool from `tools` based on the `prompt`.
         If yes, calls the tool and returns the result.
@@ -50,14 +53,15 @@ class LLMOpenClaw(LLMBase):
         self.llm = LLMBrowser()
 
     def complete(self, prompt: str, *args, **kwargs):
-        return self.llm.call(prompt)
+        answer = self.llm.call(prompt)
+        return LLMResponse(answer)
 
     def complete_with_tools(self, prompt: str):
         prompt_modified = add_tool_directive(prompt)
         answer = self.complete(prompt_modified)
-        tool_call = parse_out_tool_call(answer)
+        tool_call = parse_out_tool_call(answer.text)
 
-        return answer, tool_call
+        return answer.text, tool_call
 
 
 class LLMBrowserWithTools(LLMBase):
@@ -129,25 +133,27 @@ class LLMBrowserWithTools(LLMBase):
     def __init__(self):
         self.llm = LLMBrowser()
 
-    def complete(self, prompt: str, *args, **kwargs):
-        return self.llm.call(message=prompt)
+    def complete(self, prompt: str, *args, **kwargs) -> LLMResponse:
+        answer =  self.llm.call(message=prompt)
 
-    def predict_and_call(self, prompt: str, tools: list[Callable], *args, **kwargs):
+        return LLMResponse(answer)
+
+    def predict_and_call(self, prompt: str, tools: list[Callable], *args, **kwargs) -> LLMResponse:
         tool_descriptions = [self.callable_to_tool(tool) for tool in tools]
         prompt += f"\nAvailable Tools:{tool_descriptions}"
         prompt_formatted = add_tool_directive(prompt)
         answer = self.complete(prompt=prompt_formatted)
 
-        tool_call = parse_out_tool_call(answer)
+        tool_call = parse_out_tool_call(answer.text)
         if tool_call:
-            # TODO: delete me
-            print(tool_call)
-
             available_functions = {fn.__name__: fn for fn in tools}
             tool_name = tool_call["function"]["name"]
             tool_kwargs = tool_call["function"]["arguments"]
             fn = available_functions.get(tool_name, None )
-            answer = fn(**tool_kwargs)
+            res_tool = fn(**tool_kwargs)
+            answer.tool_call = LLMToolCall(tool_name, res_tool)
+            # TODO: DELETE ME
+            print(f""" !!!!! Result of {tool_name} is:\n{res_tool} """)
 
         return answer
 
@@ -189,7 +195,7 @@ class MLFlowLLMWrapper:
     def __init__(self, llm_instance):
         self.llm = llm_instance
 
-    def complete(self, prompt, **kwargs):
+    def complete(self, prompt, **kwargs) -> LLMResponse:
         # Get caller function name and module
         caller_frame = inspect.currentframe().f_back
         caller_function = caller_frame.f_code.co_name
@@ -199,17 +205,17 @@ class MLFlowLLMWrapper:
             mlflow.log_param("caller", f"{caller_module}.{caller_function}")
             mlflow.log_param("llm_name", self.llm.model)
 
-            response = self.llm.complete(prompt, **kwargs)
+            raw_response = self.llm.complete(prompt, **kwargs)
 
             mlflow.log_metric("prompt_length", len(prompt))
-            mlflow.log_metric("response_length", len(response.text))
+            mlflow.log_metric("response_length", len(raw_response.text))
 
             mlflow.log_text(prompt, f"prompt_{caller_function}.txt")
-            mlflow.log_text(response.text, f"response_{caller_function}.txt")
+            mlflow.log_text(raw_response.text, f"response_{caller_function}.txt")
             
-            return response
+            return raw_response
 
-    def predict_and_call(self, user_msg, tools, **kwargs):
+    def predict_and_call(self, prompt, tools, **kwargs) -> LLMResponse:
         # Get caller function name and module
         caller_frame = inspect.currentframe().f_back
         caller_function = caller_frame.f_code.co_name
@@ -219,15 +225,20 @@ class MLFlowLLMWrapper:
             mlflow.log_param("caller", f"{caller_module}.{caller_function}")
             mlflow.log_param("llm_name", self.llm.model)
 
-            response = self.llm.predict_and_call(prompt=user_msg, tools=tools, **kwargs)
+            raw_response = self.llm.predict_and_call(prompt=prompt, tools=tools, **kwargs)
+            # TODO: think about data handling here,
+            #  overwriting is loosing info about the original json for the tool call
+            raw_response.text = raw_response.tool_call.tool_output
+            raw_response.response = raw_response.tool_call.tool_output
 
-            mlflow.log_metric("prompt_length", len(user_msg))
-            mlflow.log_metric("response_length", len(response.response))
 
-            mlflow.log_text(user_msg, f"prompt_{caller_function}.txt")
-            mlflow.log_text(response.response, f"response_{caller_function}.txt")
+            mlflow.log_metric("prompt_length", len(prompt))
+            mlflow.log_metric("response_length", len(raw_response.text))
 
-            return response
+            mlflow.log_text(prompt, f"prompt_{caller_function}.txt")
+            mlflow.log_text(raw_response.text, f"response_{caller_function}.txt")
+
+            return raw_response
 
 ## TODO: stop using global var
 # llm = MLFlowLLMWrapper(
@@ -236,10 +247,6 @@ class MLFlowLLMWrapper:
 #         request_timeout=REQUEST_TIMEOUT,
 #     )
 # )
-llm = LLMBrowserWithTools()
-
-
-if __name__=="__main__":
-    from generalist.tools import write_code
-    # llm = LLMBrowserWithTools()
-    llm.predict_and_call("Write a hello world ", [write_code])
+llm =  MLFlowLLMWrapper(
+    LLMBrowserWithTools()
+)

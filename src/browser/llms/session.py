@@ -47,10 +47,10 @@ class LLMSession:
         self.browser.wait(2)
         self._validate_start_page_loaded()
 
-    def _retrieve_last_answer(self, time_out: int):
+    def _retrieve_last_answer(self, time_out: int) -> str:
         raise NotImplementedError()
 
-    def _validate_message_sent(self):
+    def _validate_message_sent(self) -> str:
         last_answer_memory = ""
         last_answer_on_page = ""
         # ToDo: use a datastruct to access the answer attribute
@@ -69,10 +69,10 @@ class LLMSession:
         else:
             return last_answer_on_page
 
-    def _send_message(self, message: str):
+    def _send_message(self, message: str) -> str:
         raise NotImplementedError
     
-    def send_message(self, message: str):
+    def send_message(self, message: str) -> str:
         self._activate_chat_session()
         # TODO: this is suggestion from Claude, as a solution to error with non-BMP characters 
         message = "".join(c for c in message if ord(c) <= 0xFFFF)

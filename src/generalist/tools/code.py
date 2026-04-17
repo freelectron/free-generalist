@@ -1,5 +1,6 @@
 import subprocess
 import sys
+import re
 
 from ..models.core import llm
 from clog import get_logger
@@ -78,7 +79,7 @@ def do_table_eda(file_path: str) -> str:
         logger.error(f"Error performing EDA on {file_path}: {str(e)}")
         return f"Error performing EDA: {str(e)}"
 
-def write_code(task: str, context: str | None = None, file_path: str | None = None) -> str:
+def write_code(task: str, context: str | None = None) -> str:
     """
     This tool writes code that accomplishes a task given some file resource.
 
@@ -88,9 +89,8 @@ def write_code(task: str, context: str | None = None, file_path: str | None = No
         - uses python standard libraries and/or may use common packages (e.g., pandas, numpy, matplotlib, nltk, beautifulsoup4)
 
     Args:
-        task (str): Description of the task to complete.
-        context (str): all the previous errors while executing, exploratory analysis on relevant file, other tool calls outputs
-        file_path (str): File path to the file relevant for the task.
+        task: Description of the task to complete.
+        context: all the previous errors while executing, exploratory analysis on relevant file, other tool calls outputs
 
     Returns:
         str: Generated Python code.
@@ -101,30 +101,23 @@ Task: {task}
 
 Context: {context}
 
-File: {file_path if file_path else "None"}
-
 Requirements:
 - Generate complete and executable Python code, do not assume or make up path files that were not given in this prompt 
 - If needed, use standard Python libraries and/or common packages (pandas, numpy, matplotlib, nltk, beautifulsoup4, etc.)
 - If needed, read the file at the given path and perform the requested task
 - Handle potential errors gracefully
 
-Return ONLY the Python code, without any additional explanation or markdown formatting."""
+Return the Python code, within python formatting, i.e., ``python <your code> ```"""
 
     try:
         response = llm.complete(prompt)
+        logger.info(f"Generated code for task: {task}\nRaw Output:\n{response.text}")
 
-        code = response.text.strip()
-        if code.startswith("```python"):
-            code = code[9:]
-        if code.startswith("```"):
-            code = code[3:]
-        if code.endswith("```"):
-            code = code[:-3]
-        code = code.strip()
+        python_match = re.search(r"python\s*\n(.+)", response.text, re.DOTALL | re.IGNORECASE)
+        if not python_match:
+            raise ValueError("Python code was not parsed correctly: just output python code (```python <your code> ```) and nothing else.")
 
-        logger.info(f"Generated code for task {task}: {code}")
-        return code
+        return python_match.group(1)
 
     except Exception as e:
         logger.error(f"Error generating code: {str(e)}")
@@ -167,7 +160,7 @@ def execute_code(file_path: str) -> str:
             output.append("STDERR:")
             output.append(result.stderr)
 
-        logger.info(f"Executed code from {file_path} with exit code {result.returncode}")
+        logger.info(f"Executed code from {file_path} with error {result.stderr}")
         return "\n".join(output) if output else "Code executed successfully with no output."
 
     except subprocess.TimeoutExpired:

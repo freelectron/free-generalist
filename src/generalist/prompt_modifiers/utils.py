@@ -3,7 +3,7 @@ import re
 
 def parse_out_tool_call(raw_llm_answer: str) -> dict | None:
     """
-    Openclaw agent is supposed to write the tool call definition json itself, you just need to parse it out.
+    Ollama style agent is supposed to write the tool call definition json itself, you just need to parse it out.
     TODO: add checks for whether it was an actual tool call or just plain-regular-unrelated json
 
     Example 1:
@@ -41,5 +41,8 @@ def parse_out_tool_call(raw_llm_answer: str) -> dict | None:
     json_match = re.search(r"json.*?(\{.*\})", raw_llm_answer, re.DOTALL | re.IGNORECASE)
     if json_match:
         tool_call = json.loads(json_match.group(1))
+
+    # TODO: Delete me
+    print(f"""?!?!?!?!? {tool_call}""")
 
     return tool_call

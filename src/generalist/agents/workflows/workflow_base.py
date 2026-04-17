@@ -58,7 +58,7 @@ class AgentWorkflow:
     Creates a LangGraph workflow that can be customized with different tools
     and decision-making logic for different agent types.
     """
-    tools: list[Callable]
+    tools: list[Callable] | None
     graph: CompiledStateGraph
 
     def __init__(
@@ -138,7 +138,7 @@ class AgentWorkflow:
         """
 
         # Sometimes llm does not call any tools so we need to retry
-        response = self.llm.predict_and_call(user_msg=prompt, tools=self.tools)
+        response = self.llm.predict_and_call(prompt=prompt, tools=self.tools)
 
         if "Encountered error" in str(response):
             raise ValueError(f"Stopping early {response}")

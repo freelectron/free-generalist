@@ -37,10 +37,10 @@ class DeepWebSearchWorkflow(AgentWorkflow):
         Initialise the workflow builder.
 
         Args:
-            name (str): agent name
-            llm (FunctionCallingLLM): the brain
-            task (str): task that needs to be performed
-            context (list[Message]): summary of what has been achieved in the previous steps
+            name: agent name
+            llm: the brain
+            task: task that needs to be performed
+            context: summary of what has been achieved in the previous steps
         """
         super().__init__(
             name=name,

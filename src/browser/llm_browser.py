@@ -48,10 +48,6 @@ class LLMBrowser:
     def __init__(self):
         # TODO: make it nicer
         assert os.getenv("CHROME_USER_DATA_DIR")
-
-        # TODO: DELETE
-        print("I AM HERE")
-
         chrome_browser = ChromeBrowser()
 
         # Monitoring

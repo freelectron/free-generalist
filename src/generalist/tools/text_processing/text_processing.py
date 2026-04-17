@@ -2,7 +2,6 @@ from typing import Literal
 
 from langchain_text_splitters import CharacterTextSplitter
 
-from browser import CHATGPT_SESSION, DEEPSEEK_SESSION
 from generalist.models.core import llm
 from clog import get_logger
 from generalist.tools.text_processing.utils import parse_config
@@ -59,10 +58,10 @@ def _process_chunk_remote(task: str, text: str) -> str:
     Otherwise, provide the direct answer.
     """
 
-    answer = CHATGPT_SESSION.send_message(prompt)
-    # answer =  DEEPSEEK_SESSION.send_message(prompt)
+    # TODO: replace with llm dependency injection
+    answer = llm.complete(prompt)
 
-    return answer
+    return answer.text
 
 
 def process_text(task: str, text: str, mode: Literal["local", "remote"] = "local") -> list[str]:

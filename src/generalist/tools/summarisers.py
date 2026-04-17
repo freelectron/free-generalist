@@ -38,24 +38,26 @@ INSTRUCTIONS:
 2. Determine if the TASK can be fully answered using ONLY the information given
 3. Do NOT use external knowledge or make assumptions beyond what is explicitly stated
 
-OUTPUT FORMAT (valid JSON):
+OUTPUT FORMAT (valid JSON with formatting):
+```json
 {{
     "answer": "<provide the direct answer as a concise word, number, or short phrase, IF the TASK is completely answered in the information, otherwise use leave blank>",
     "clarification": "<briefly explain what the information contains and how it relates to the task>"
 }}
+```
 
 IMPORTANT RULES:
 - Provide "answer" ONLY when the task has a complete answer in the provided information
 - If the answer is partial or incomplete, set "answered" to "false"
 - ALWAYS fill the "clarification" field with the main findings from the information, regardless of whether the task was answered
 - Base your response strictly on the provided information without adding external knowledge
-    """
+"""
 
     llm_response = llm.complete(prompt)
     response_text = llm_response.text
     response_text = response_text.strip()
 
-    json_match = re.search(r"```json\n(.*?)```", response_text, re.DOTALL)
+    json_match = re.search(r"json.*?(\{.*\})", response_text, re.DOTALL | re.IGNORECASE)
     code_string = json_match.group(1) if json_match else ""
     if len(code_string) > 1: 
         response_text = code_string
@@ -99,10 +101,13 @@ def construct_task_completion(task: str, context: str, agent_capability: str) ->
     And whether it should proceed to the next step.
     
     Your response MUST be valid JSON in the following format:
+    ```json
     {{
         "done": <write only "true" or "false">,
         "summary": "<a short phrase describing what was achieved, and if agent can do something else with its available capabilities.>"
     }}
+    ```
+    
     Explanation:
     {{
         "done": <whether the agent has done everything it could based on its capabilities>,
@@ -113,7 +118,7 @@ def construct_task_completion(task: str, context: str, agent_capability: str) ->
     llm_response = llm.complete(prompt)
     response_text = llm_response.text.strip()
 
-    json_match = re.search(r"```json\n(.*?)```", response_text, re.DOTALL)
+    json_match = re.search(r"json.*?(\{.*\})", response_text, re.DOTALL | re.IGNORECASE)
     code_string = json_match.group(1) if json_match else ""
     if len(code_string) > 1:
         response_text = code_string
