@@ -1,12 +1,9 @@
 import tempfile
-from typing import Callable
 
 from langgraph.graph.state import CompiledStateGraph
 
 from generalist.agents.workflows.workflow_base import AgentWorkflow, AgentState
-from generalist.models.core import MLFlowLLMWrapper
-from generalist.tools import ToolOutputType, execute_code_tool, do_table_eda, \
-    write_code, execute_code
+from generalist.tools import ToolOutputType, execute_code
 from generalist.tools.data_model import Message
 from clog import get_logger
 
@@ -20,9 +17,6 @@ class CodeWriterExecutorWorkflow(AgentWorkflow):
 
     Creates a workflow that can write and execute Python code.
     """
-    tools: list[Callable] = [do_table_eda,
-                             write_code,
-                             execute_code]
     graph: CompiledStateGraph | None = None
 
     def process_tool_output(self, state: AgentState):
@@ -34,12 +28,12 @@ class CodeWriterExecutorWorkflow(AgentWorkflow):
             # write the output to a tempfile
             fp = tempfile.NamedTemporaryFile(delete=False, delete_on_close=False, mode="w", encoding="utf-8")
             fp.write(state["tool_call_result"].output); fp.close()
-            content = (f"Output of {state["tool_call_result"].name} for an intermediary task (task: {state['task']}) is stored in {fp.name}."
-                       f"EXECUTE THIS FILE IN THE NEXT STEP TO GET THE RESULT.")
+            content = (f"Output of {state["tool_call_result"].name} "
+                       f"for an intermediary task (task: {state['task']}) is stored in {fp.name}.")
             link = fp.name
 
         # TODO: find how to adjust the code so that I can process the output of each tool code differently
-        if state["tool_call_result"].name == execute_code_tool.metadata.name:
+        if state["tool_call_result"].name == execute_code.__name__:
            content = f"Executed code for task: {state['task']}.\nOUTPUT:" + content
 
         state["context"].append(

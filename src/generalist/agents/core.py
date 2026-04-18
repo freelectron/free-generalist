@@ -1,9 +1,12 @@
-from typing import Type
+from typing import Type, Callable
 from dataclasses import dataclass
 
 from .workflows.workflow_coder import CodeWriterExecutorWorkflow
 from .workflows.workflow_web_search import DeepWebSearchWorkflow
+from .. import tools
 from ..models.core import llm
+from ..tools import web_search, do_table_eda, write_code, execute_code, read_file, find_file, list_files, grep_files, \
+    replace_file_contents
 from ..tools.text_processing.text_processing import process_text
 from ..tools.data_model import Message
 from clog import get_logger
@@ -47,6 +50,7 @@ class AgentDeepWebSearch(BaseAgent):
     capability = "searches and downloads web information, but does not process the content and retrieves information"
     # Save the final state for inspection
     agent_state = None
+    tools: list[Callable] = [web_search]
 
     def __init__(self, activity: str):
         super().__init__(activity=activity)
@@ -60,6 +64,7 @@ class AgentDeepWebSearch(BaseAgent):
             llm=llm,
             context=[],
             task=self.activity,
+            tools=self.tools
         )
 
         self.agent_state = agent_workflow.run()
@@ -109,6 +114,7 @@ class AgentCodeWriterExecutor(BaseAgent):
     capability = "can write programming code, also execute only python code"
     # Save the final state for inspection
     agent_state = None
+    tools: list[Callable] = [do_table_eda, write_code, execute_code, read_file, find_file, list_files, grep_files, replace_file_contents]
 
     def run(self, resources:list[Message]) -> Message:
         agent_workflow = CodeWriterExecutorWorkflow(
@@ -117,6 +123,7 @@ class AgentCodeWriterExecutor(BaseAgent):
             llm=llm,
             context=resources,
             task=self.activity,
+            tools=self.tools
         )
         self.agent_state = agent_workflow.run()
         logger.info(f" After running the agent workflow :\n{self.agent_state}")

@@ -42,7 +42,4 @@ def parse_out_tool_call(raw_llm_answer: str) -> dict | None:
     if json_match:
         tool_call = json.loads(json_match.group(1))
 
-    # TODO: Delete me
-    print(f"""?!?!?!?!? {tool_call}""")
-
     return tool_call

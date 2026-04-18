@@ -20,7 +20,7 @@ def add_tool_directive(prompt: str):
     If you need to use a tool, output only a single json like so
      
     Given: Available Tools [get_weather]
-    ```json
+    ''```json
     {
         "function": {
           "name": "get_weather",
@@ -30,10 +30,11 @@ def add_tool_directive(prompt: str):
           }
         }
     }
-    ```
+    ```''
     
     Only output a single json in the exact format:
-    ```json
+    
+    ''```json
     {
         "function": {
             "name": "<tool_name>",
@@ -42,7 +43,8 @@ def add_tool_directive(prompt: str):
                     <arguments also in json format that given in ur prompt>
                 }
     }
-    ```
+    ```''
+    Note: do not modify or expand the (file)paths you are given. 
     """
 
     return prompt + "\n" + prompt_delta

@@ -153,9 +153,6 @@ class LLMBrowserWithTools(LLMBase):
             res_tool = fn(**tool_kwargs)
             answer.tool_call = LLMToolCall(tool_name, res_tool)
 
-            # TODO: DELETE ME
-            print(f""" !!!!! Result of {tool_name} is:\n{res_tool} """)
-
         return answer
 
 class LLMOllama(LLMBase):
@@ -229,9 +226,9 @@ class MLFlowLLMWrapper:
             raw_response = self.llm.predict_and_call(prompt=prompt, tools=tools, **kwargs)
             # TODO: think about data handling here,
             #  overwriting is loosing info about the original json for the tool call
-            raw_response.text = raw_response.tool_call.tool_output
-            raw_response.response = raw_response.tool_call.tool_output
-
+            if raw_response.tool_call:
+                raw_response.text = raw_response.tool_call.tool_output
+                raw_response.response = raw_response.text
 
             mlflow.log_metric("prompt_length", len(prompt))
             mlflow.log_metric("response_length", len(raw_response.text))

@@ -1,6 +1,5 @@
 import os.path
 import tempfile
-from typing import Callable
 
 from langgraph.graph.state import CompiledStateGraph
 
@@ -20,7 +19,6 @@ class DeepWebSearchWorkflow(AgentWorkflow):
 
     Creates a workflow that can perform web searches and process results.
     """
-    tools: list[Callable] = [web_search]
     graph: CompiledStateGraph | None = None
 
     def process_tool_output(self, state: AgentState):
