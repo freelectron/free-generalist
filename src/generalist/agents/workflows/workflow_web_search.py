@@ -2,12 +2,10 @@ import os.path
 import tempfile
 from typing import Callable
 
-from llama_index.core.llms.function_calling import FunctionCallingLLM
-from llama_index.core.tools import FunctionTool
 from langgraph.graph.state import CompiledStateGraph
 
 from generalist.agents.workflows.workflow_base import AgentState, AgentWorkflow
-from generalist.tools import ToolOutputType, web_search_tool, web_search
+from generalist.tools import ToolOutputType, web_search
 from generalist.tools.data_model import Message
 from clog import get_logger
 
@@ -25,41 +23,16 @@ class DeepWebSearchWorkflow(AgentWorkflow):
     tools: list[Callable] = [web_search]
     graph: CompiledStateGraph | None = None
 
-    def __init__(
-        self,
-        name: str,
-        agent_capability: str,
-        llm: FunctionCallingLLM,
-        context: list[Message],
-        task: str,
-    ):
-        """
-        Initialise the workflow builder.
-
-        Args:
-            name: agent name
-            llm: the brain
-            task: task that needs to be performed
-            context: summary of what has been achieved in the previous steps
-        """
-        super().__init__(
-            name=name,
-            agent_capability=agent_capability,
-            llm=llm,
-            context=context,
-            task=task,
-        )
-
     def process_tool_output(self, state: AgentState):
         link = ""
         content = state["tool_call_result"].output
         if state["tool_call_result"].type == ToolOutputType.FILE:
-            # write the output to a tempfile
+            # Context management trick: write the output to a tempfile
             fp = tempfile.NamedTemporaryFile(delete=False, delete_on_close=False, mode="w", encoding="utf-8")
             fp.write(state["tool_call_result"].output); fp.close()
-            content = (f"Web search SUCCESSFUL for task: {state['task']}. "
-                       f"The downloaded info is stored in {fp.name}. "
-                       f"PROCEED TO UNSTRUCTURED TEXT PROCESSING!")
+            content = (f"Web search SUCCESSFUL for task: {state['task']}."
+                       f"The downloaded info is stored in {fp.name}."
+                       f"Proceed to text processing!")
             link = fp.name
 
         state["context"].append(

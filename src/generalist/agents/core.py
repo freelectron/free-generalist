@@ -45,6 +45,8 @@ class AgentDeepWebSearch(BaseAgent):
     """Capability for performing a deep web search."""
     name = "deep_web_search"
     capability = "searches and downloads web information, but does not process the content and retrieves information"
+    # Save the final state for inspection
+    agent_state = None
 
     def __init__(self, activity: str):
         super().__init__(activity=activity)
@@ -60,11 +62,11 @@ class AgentDeepWebSearch(BaseAgent):
             task=self.activity,
         )
 
-        final_state = agent_workflow.run()
-        logger.info(f" After running {self.name}, the final state's context is:\n{final_state["context"]}")
+        self.agent_state = agent_workflow.run()
+        logger.info(f" After running {self.name}, the final state's context is:\n{self.agent_state["context"]}")
 
         # last output will be a content resource with the downloaded search results (e.g., one or multiple web pages)
-        last_resource = final_state["context"][-1]
+        last_resource = self.agent_state["context"][-1]
         return Message(
             provided_by=self.name,
             content=last_resource.content,
@@ -102,9 +104,11 @@ class AgentUnstructuredDataProcessor(BaseAgent):
 
 
 class AgentCodeWriterExecutor(BaseAgent):
-    """Capability for writing and executing python code"""
+    """Capability for writing and executing code"""
     name = "code_writing_execution"
-    capability = "can write and execute code for analysing files (e.g., csv, parquet) or performing math operations"
+    capability = "can write programming code, also execute only python code"
+    # Save the final state for inspection
+    agent_state = None
 
     def run(self, resources:list[Message]) -> Message:
         agent_workflow = CodeWriterExecutorWorkflow(
@@ -114,12 +118,12 @@ class AgentCodeWriterExecutor(BaseAgent):
             context=resources,
             task=self.activity,
         )
-        final_state = agent_workflow.run()
-        logger.info(f" After running the agent workflow :\n{final_state}")
+        self.agent_state = agent_workflow.run()
+        logger.info(f" After running the agent workflow :\n{self.agent_state}")
 
         return Message(
             provided_by=self.name,
-            content=f"Query: {self.activity} \n Answers: {str(final_state)}",
+            content=f"Query: {self.activity} \n Answers: {str(self.agent_state)}",
         )
 
 

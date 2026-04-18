@@ -152,6 +152,7 @@ class LLMBrowserWithTools(LLMBase):
             fn = available_functions.get(tool_name, None )
             res_tool = fn(**tool_kwargs)
             answer.tool_call = LLMToolCall(tool_name, res_tool)
+
             # TODO: DELETE ME
             print(f""" !!!!! Result of {tool_name} is:\n{res_tool} """)
 

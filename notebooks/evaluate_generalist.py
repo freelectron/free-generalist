@@ -156,7 +156,7 @@ def execute_capability(state: ExecutionState) -> ExecutionState:
 
 
 def manage_context(state: ExecutionState) -> ExecutionState:
-    """Summarize findings and update context."""
+    """Summarise findings and update context."""
     capability_plan = state["capability_plan"]
     if not capability_plan:
         return state

@@ -25,31 +25,6 @@ class CodeWriterExecutorWorkflow(AgentWorkflow):
                              execute_code]
     graph: CompiledStateGraph | None = None
 
-    def __init__(
-        self,
-        name: str,
-        agent_capability: str,
-        llm: MLFlowLLMWrapper,
-        context: list[Message],
-        task: str,
-    ):
-        """
-        Initialize the workflow builder.
-
-        Args:
-            name: agent name
-            llm: the brain
-            task: task that needs to be performed
-            context: summary of what has been achieved in the previous steps
-        """
-        super().__init__(
-            name=name,
-            agent_capability=agent_capability,
-            llm=llm,
-            context=context,
-            task=task,
-        )
-
     def process_tool_output(self, state: AgentState):
         """
         """

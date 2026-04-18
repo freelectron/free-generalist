@@ -23,10 +23,10 @@ class ToolOutputType(str, Enum):
     FILE = FILE_TOOL_OUTPUT
 
 MAPPING = {
-    eda_table_tool.metadata.name: ToolOutputType.STRING,
-    write_code_tool.metadata.name: ToolOutputType.FILE,
-    execute_code_tool.metadata.name: ToolOutputType.STRING,
-    web_search_tool.metadata.name: ToolOutputType.FILE,
+    do_table_eda.__name__: ToolOutputType.STRING,
+    write_code.__name__: ToolOutputType.FILE,
+    execute_code.__name__: ToolOutputType.STRING,
+    web_search.__name__: ToolOutputType.FILE,
 }
 
 def get_tool_type(tool_name: str)->ToolOutputType:
