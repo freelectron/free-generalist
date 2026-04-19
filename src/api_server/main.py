@@ -19,6 +19,7 @@ logger = get_logger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Treat llm browser as a DB/RPC connection"""
+    # FIXME: need to init ChromBrowser and pass it in llm
     llm = LLMOpenClaw()
     assert llm
     app.state.llm = llm

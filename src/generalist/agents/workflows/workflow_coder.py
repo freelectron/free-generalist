@@ -3,7 +3,8 @@ import tempfile
 from langgraph.graph.state import CompiledStateGraph
 
 from generalist.agents.workflows.workflow_base import AgentWorkflow, AgentState
-from generalist.tools import ToolOutputType, execute_code
+from generalist.tools import ToolOutputType
+from generalist.tools.code import ExecuteCodeTool
 from generalist.tools.data_model import Message
 from clog import get_logger
 
@@ -13,15 +14,13 @@ logger = get_logger(__name__)
 
 
 class CodeWriterExecutorWorkflow(AgentWorkflow):
-    """Workflow builder for Code Writer Executor agent.
-
-    Creates a workflow that can write and execute Python code.
+    """
+    Workflow builder for Code Writer Executor agent.
+    Creates a workflow that can write code, and execute Python scripts.
     """
     graph: CompiledStateGraph | None = None
 
     def process_tool_output(self, state: AgentState):
-        """
-        """
         link = state["tool_call_result"].output
         content = state["tool_call_result"].output
         if state["tool_call_result"].type == ToolOutputType.FILE:
@@ -33,7 +32,7 @@ class CodeWriterExecutorWorkflow(AgentWorkflow):
             link = fp.name
 
         # TODO: find how to adjust the code so that I can process the output of each tool code differently
-        if state["tool_call_result"].name == execute_code.__name__:
+        if state["tool_call_result"].name == ExecuteCodeTool.name:
            content = f"Executed code for task: {state['task']}.\nOUTPUT:" + content
 
         state["context"].append(

@@ -5,10 +5,12 @@ from typing import Callable, get_origin, Union, get_args, get_type_hints
 import ollama
 import mlflow
 
+from browser import ChromeBrowser
 from browser.llm_browser import LLMBrowser
 from clog import get_logger
 from generalist.prompt_modifiers.ollama_tool_call import add_tool_directive
 from generalist.prompt_modifiers.utils import parse_out_tool_call
+
 
 logger = get_logger(__name__)
 REQUEST_TIMEOUT = 180
@@ -49,8 +51,8 @@ class LLMBase(ABC):
 
 
 class LLMOpenClaw(LLMBase):
-    def __init__(self):
-        self.llm = LLMBrowser()
+    def __init__(self, browser: ChromeBrowser):
+        self.llm = LLMBrowser(browser)
 
     def complete(self, prompt: str, *args, **kwargs):
         answer = self.llm.call(prompt)
@@ -100,9 +102,12 @@ class LLMBrowserWithTools(LLMBase):
         return {"type": "string"}
 
     @classmethod
-    def callable_to_tool(cls, fn: Callable):
-        sig = inspect.signature(fn)
-        type_hints = get_type_hints(fn)
+    def tool_to_llm_schema(cls, tool) -> dict:
+        """
+        Ollama style function calling.
+        """
+        sig = inspect.signature(tool.run)
+        type_hints = get_type_hints(tool.run)
 
         properties = {}
         required = []
@@ -120,8 +125,8 @@ class LLMBrowserWithTools(LLMBase):
         return {
             "type": "function",
             "function": {
-                "name": fn.__name__,
-                "description": inspect.getdoc(fn) or "",
+                "name": tool.name,
+                "description": inspect.getdoc(tool.run) or tool.description,
                 "parameters": {
                     "type": "object",
                     "properties": properties,
@@ -130,27 +135,27 @@ class LLMBrowserWithTools(LLMBase):
             },
         }
 
-    def __init__(self):
-        self.llm = LLMBrowser()
+    def __init__(self, browser: ChromeBrowser):
+        self.llm = LLMBrowser(browser)
 
     def complete(self, prompt: str, *args, **kwargs) -> LLMResponse:
         answer =  self.llm.call(message=prompt)
 
         return LLMResponse(answer)
 
-    def predict_and_call(self, prompt: str, tools: list[Callable], *args, **kwargs) -> LLMResponse:
-        tool_descriptions = [self.callable_to_tool(tool) for tool in tools]
+    def predict_and_call(self, prompt: str, tools: list, *args, **kwargs) -> LLMResponse:
+        tool_descriptions = [self.tool_to_llm_schema(tool) for tool in tools]
         prompt += f"\nAvailable Tools:{tool_descriptions}"
         prompt_formatted = add_tool_directive(prompt)
         answer = self.complete(prompt=prompt_formatted)
 
         tool_call = parse_out_tool_call(answer.text)
         if tool_call:
-            available_functions = {fn.__name__: fn for fn in tools}
+            available_tools = {tool.name: tool for tool in tools}
             tool_name = tool_call["function"]["name"]
             tool_kwargs = tool_call["function"]["arguments"]
-            fn = available_functions.get(tool_name, None )
-            res_tool = fn(**tool_kwargs)
+            tool = available_tools.get(tool_name)
+            res_tool = tool.run(**tool_kwargs)
             answer.tool_call = LLMToolCall(tool_name, res_tool)
 
         return answer
@@ -164,20 +169,21 @@ class LLMOllama(LLMBase):
         result = ollama.chat(model=self.model, messages=[{"role": "user", "content": prompt}], **kwargs)
         return LLMResponse(result.message.content)
 
-    def predict_and_call(self, prompt: str, tools: list[Callable], **kwargs):
+    def predict_and_call(self, prompt: str, tools: list, **kwargs):
+        tool_schemas = [LLMBrowserWithTools.tool_to_llm_schema(tool) for tool in tools]
         result = ollama.chat(
             model=self.model,
             messages=[{"role": "user", "content": prompt}],
-            tools=tools,
+            tools=tool_schemas,
             **kwargs,
         )
         if len(result.message.tool_calls) > 1:
             raise ValueError(f"More than 1 tool identified by LLM: {result.message}")
         elif len(result.message.tool_calls) == 1:
-            available_functions = {fn.__name__: fn for fn in tools}
+            available_tools = {tool.name: tool for tool in tools}
             tool_name = result.message.tool_calls[0].function.name
-            fn = available_functions.get(tool_name, None )
-            res_tool = fn(**result.message.tool_calls[0].function.arguments)
+            tool = available_tools.get(tool_name)
+            res_tool = tool.run(**result.message.tool_calls[0].function.arguments)
             tool_call = LLMToolCall(tool_name, res_tool)
             return LLMResponse(result.message.content, tool_call)
         else:
@@ -190,7 +196,7 @@ class MLFlowLLMWrapper:
     Generic class to wrap calls to llm with MLFlow logging.
     Use this class for debugging LLM calls, monkeypatch the original
     """
-    def __init__(self, llm_instance):
+    def __init__(self, llm_instance: LLMBase):
         self.llm = llm_instance
 
     def complete(self, prompt, **kwargs) -> LLMResponse:
@@ -237,14 +243,3 @@ class MLFlowLLMWrapper:
             mlflow.log_text(raw_response.text, f"response_{caller_function}.txt")
 
             return raw_response
-
-## TODO: stop using global var
-# llm = MLFlowLLMWrapper(
-#     LLMOllama(
-#         model=LOCAL_MODEL_NAME,
-#         request_timeout=REQUEST_TIMEOUT,
-#     )
-# )
-llm =  MLFlowLLMWrapper(
-    LLMBrowserWithTools()
-)

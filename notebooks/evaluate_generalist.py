@@ -6,22 +6,21 @@ Extracted and refactored from evaluate_generalist_v2.ipynb
 
 import os
 import logging
-from typing import TypedDict, List, Optional, Any, Dict
-from dataclasses import dataclass, field
+from typing import TypedDict, List, Optional, Any
+from dataclasses import dataclass
 
 from dotenv import load_dotenv
 import mlflow
 from huggingface_hub import snapshot_download
 from datasets import load_dataset
 from langgraph.graph import StateGraph, START, END
-from IPython.display import Image, display
 
 # Import your project modules - adjust these imports based on your actual package structure
 try:
     from generalist.agents.core import AgentPlan, AgentDeepWebSearch, AgentUnstructuredDataProcessor, AgentCodeWriterExecutor
     from generalist.tools.data_model import ShortAnswer, Message
     from generalist.tools.planning import determine_next_step, parse_out_resource_link
-    from generalist.tools.summarisers import construct_short_answer, summarise_findings
+    from generalist.agents.workflows.tasks.reflection_evaluation import construct_short_answer, summarise_findings
     from browser import BRAVE_SEARCH_SESSION
 except ImportError as e:
     logging.warning(f"Import error: {e}. Make sure your package is installed correctly.")
@@ -451,6 +450,111 @@ def main():
     except Exception as e:
         logger.error(f"Evaluation failed: {e}", exc_info=True)
         raise
+
+############################
+# DELETED FUNCTIONS:
+############################
+# def construct_short_answer(task: str, context: str) -> ShortAnswer:
+#     """Summarises a context and provides a structured short answer to the task.
+#
+#     This function sends the task and context to an LLM, which synthesizes
+#     the information and return a shorten result.
+#
+#     Note:
+#         This function requires a configured LLM client, represented here as `llm`.
+#
+#     Args:
+#         task: The specific question or instruction to be performed.
+#         context: A string containing the text/information to be analyzed.
+#
+#     Returns:
+#         A ShortAnswer dataclass instance containing the answer and clarification.
+#     """
+#     prompt = f"""
+# You are tasked with determining whether the following TASK can be answered using the provided information.
+#
+# TASK: {task}
+#
+# INFORMATION PROVIDED:
+# {context}
+#
+# INSTRUCTIONS:
+# 1. Review the information provided above carefully
+# 2. Determine if the TASK can be fully answered using ONLY the information given
+# 3. Do NOT use external knowledge or make assumptions beyond what is explicitly stated
+#
+# OUTPUT FORMAT (valid JSON with formatting):
+# ```json
+# {{
+#     "answer": "<provide the direct answer as a concise word, number, or short phrase, IF the TASK is completely answered in the information, otherwise use leave blank>",
+#     "clarification": "<briefly explain what the information contains and how it relates to the task>"
+# }}
+# ```
+#
+# IMPORTANT RULES:
+# - Provide "answer" ONLY when the task has a complete answer in the provided information
+# - If the answer is partial or incomplete, set "answered" to "false"
+# - ALWAYS fill the "clarification" field with the main findings from the information, regardless of whether the task was answered
+# - Base your response strictly on the provided information without adding external knowledge
+# """
+#
+#     llm_response = llm.complete(prompt)
+#     response_text = llm_response.text
+#     response_text = response_text.strip()
+#
+#     json_match = re.search(r"json.*?(\{.*\})", response_text, re.DOTALL | re.IGNORECASE)
+#     code_string = json_match.group(1) if json_match else ""
+#     if len(code_string) > 1:
+#         response_text = code_string
+#
+#     logger.info(f"Short answer:\n{response_text}.")
+#     data = json.loads(response_text)
+#     # FIXME: either make parsing more robust or do manually
+#     if isinstance(data["answered"], bool):
+#         data["answered"] = str(data["answered"])
+#
+#     answer = data.get("answer", None)
+#     if not answer:
+#         answered = False
+#     elif answer in ["", "None", "blank"]:
+#         answered = False
+#     else:
+#         answered = True
+#
+#     return ShortAnswer(
+#         answered=answered,
+#         answer=answer,
+#         clarification=data.get("clarification", None)
+#     )
+#
+# def summarise_findings(task: str, context: str) -> ShortAnswer:
+#     """
+#     Evaluates whether the task has been accomplished based on provided context.
+#
+#     The task does not require a final answer. It is considered completed
+#     if the main steps or intent appear to be fulfilled based solely on
+#     the given resources.
+#     """
+#
+#     prompt = f"""
+#     You are presented with a list of information describing work, actions, or outcomes of previous steps:
+#     {context}
+#
+#     Based **ONLY** on the resources above and without any additional assumptions, provide a summary of information.
+#
+#     Extract (copy-paste) the information that might be needed for the task: {task}.
+#     """
+#
+#     llm_response = llm.complete(prompt)
+#     response_text = llm_response.text.strip()
+#
+#     logger.info(f"From `summarise_findings`:\n{response_text}.")
+#
+#     return ShortAnswer(
+#         answered=False,
+#         answer="this is just a summary of previous steps.",
+#         clarification=response_text,
+#     )
 
 
 if __name__ == "__main__":

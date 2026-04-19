@@ -1,6 +1,5 @@
 import tempfile
 from dataclasses import dataclass
-from typing import Callable
 
 import mlflow
 from typing_extensions import TypedDict
@@ -9,9 +8,13 @@ from langgraph.graph.state import CompiledStateGraph
 
 from generalist.models.core import MLFlowLLMWrapper
 from generalist.tools import ToolOutputType, get_tool_type
+from generalist.tools.base import BaseTool
 from generalist.tools.data_model import Message, ShortAnswer
 from clog import get_logger
-from generalist.tools.summarisers import construct_task_completion
+from generalist.agents.workflows.tasks.reflection_evaluation import evaluate_task_completion
+from generalist.agents.workflows.tasks.plan_action import plan_next_action
+from generalist.agents.workflows.tasks.execute_tool import call_tool
+from generalist.agents.workflows.tasks.reflect import reflect_on_progress
 
 
 MAX_STEPS = 5
@@ -58,7 +61,7 @@ class AgentWorkflow:
     Creates a LangGraph workflow that can be customized with different tools
     and decision-making logic for different agent types.
     """
-    tools: list[Callable] | None
+    tools: list[BaseTool] | None
     graph: CompiledStateGraph
 
     def __init__(
@@ -68,7 +71,7 @@ class AgentWorkflow:
         llm: MLFlowLLMWrapper,
         context: list[Message],
         task: str,
-        tools: list[Callable] | None = None
+        tools: list[BaseTool] | None = None
     ):
         """
         Initialise the workflow builder.
@@ -89,63 +92,32 @@ class AgentWorkflow:
 
     def plan_action(self, state: AgentState):
         """Planning node: Reason about what to do next before executing tools."""
-        context_str = state["context"]
-        tools_str = "\n".join([f"- {tool.__name__}: {tool.__doc__}" for tool in self.tools])
+        state["plan"] = plan_next_action(
+            task=state["task"],
+            context=str(state["context"]),
+            agent_capability=self.agent_capability,
+            tools=self.tools,
+            previous_reflection=state.get("reflection"),
+            llm=self.llm,
+        )
 
-        prompt = f"""
-        Role: {self.agent_capability}
-
-        Task: {state["task"]}
-
-        Context from previous steps:
-        {context_str}
-
-        {f"Previous reflection: {state['reflection']}" if state.get("reflection") else ""}
-
-        Available tools:
-        {tools_str}
-
-        Based on the task and context, reason about:
-        1. What information do you have so far?
-        2. What is still missing to complete the task?
-        3. Which tool should you use next and why?
-
-        Provide a brief plan for the next action (2-3 sentences).
-        """
-
-        response = self.llm.complete(prompt)
-        state["plan"] = response.text.strip()
         logger.info(f"[{self.agent_name}] Step_{state['step']}. Plan: {state['plan']}")
-
         return state
 
     def execute_tool(self, state: AgentState):
         """Execute a tool based on the current plan."""
-        context_str = state["context"]
-
-        prompt = f"""
-        Role: {self.agent_capability}
-
-        Task: {state["task"]}
-
-        Context from previous steps:
-        {context_str}
-
-        Plan: {state["plan"]}
-
-        Based on the plan above, you MUST call exactly ONE of the available tools now.
-        Choose the most appropriate tool to make progress on the task.
-        """
-
-        # Sometimes llm does not call any tools so we need to retry
-        response = self.llm.predict_and_call(prompt=prompt, tools=self.tools)
+        response = call_tool(
+            task=state["task"],
+            context=str(state["context"]),
+            plan=state["plan"],
+            tools=self.tools,
+            llm=self.llm,
+        )
 
         if "Encountered error" in str(response):
             raise ValueError(f"Stopping early {response}")
 
-        # Tool that has just been called
         tool_name = response.tool_call.tool_name
-
         state["tool_call_result"] = ExecuteToolOutput(name=tool_name, type=get_tool_type(tool_name), output=response.response)
         state["step"] += 1
 
@@ -181,32 +153,18 @@ class AgentWorkflow:
 
     def reflect(self, state: AgentState):
         """Reflection node: Analyze the tool output and determine next steps."""
-        context_str = state["context"]
+        state["reflection"] = reflect_on_progress(
+            task=state["task"],
+            context=str(state["context"]),
+            agent_capability=self.agent_capability,
+            llm=self.llm,
+        )
 
-        prompt = f"""
-        Role: {self.agent_capability}
-
-        Task: {state["task"]}
-
-        Context so far:
-        {context_str}
-
-        Reflect on the progress:
-        1. What did you just learn from the latest tool output?
-        2. How does this help with the task?
-        3. Is the task complete, or what should you do next?
-
-        Provide a brief reflection (2-3 sentences).
-        """
-
-        response = self.llm.complete(prompt)
-        state["reflection"] = response.text.strip()
         logger.info(f"[{self.agent_name}] Step_{state['step']}. Reflection: {state['reflection']}")
-
         return state
 
     def evaluate_completion(self, state: AgentState):
-        decision = construct_task_completion(state["task"], str(state["context"]), self.agent_capability)
+        decision = evaluate_task_completion(state["task"], str(state["context"]), self.agent_capability, llm=self.llm)
         # Early stopping if answer exists
         if decision.completed:
             return "end"

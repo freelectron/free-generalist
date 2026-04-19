@@ -2,7 +2,7 @@ from typing import Literal
 
 from langchain_text_splitters import CharacterTextSplitter
 
-from generalist.models.core import llm
+from generalist.models.core import MLFlowLLMWrapper
 from clog import get_logger
 from generalist.tools.text_processing.utils import parse_config
 
@@ -10,7 +10,7 @@ from generalist.tools.text_processing.utils import parse_config
 logger = get_logger(__name__)
 
 
-def _process_chunk_local(task: str, text: str) -> str:
+def _process_chunk_local(task: str, text: str, llm: MLFlowLLMWrapper) -> str:
     """Performs a task on a single block of text using an LLM.
 
     This function is a general-purpose processor that asks an LLM to execute
@@ -43,7 +43,7 @@ def _process_chunk_local(task: str, text: str) -> str:
     return llm_result.text
 
 
-def _process_chunk_remote(task: str, text: str) -> str:
+def _process_chunk_remote(task: str, text: str, llm: MLFlowLLMWrapper) -> str:
     prompt = f"""
     Perform the instruction/task in the user's question.
     Use only the information provided in the context.
@@ -64,7 +64,7 @@ def _process_chunk_remote(task: str, text: str) -> str:
     return answer.text
 
 
-def process_text(task: str, text: str, mode: Literal["local", "remote"] = "local") -> list[str]:
+def process_text(task: str, text: str, llm: MLFlowLLMWrapper, mode: Literal["local", "remote"] = "local") -> list[str]:
     """
     Splits a large text into chunks and processes each chunk with an LLM to perform the mentioned task.
 
@@ -98,7 +98,7 @@ def process_text(task: str, text: str, mode: Literal["local", "remote"] = "local
     responses = []
     for chunk in chunks:
         if chunk:
-            chunk_response = processor(task, chunk)
+            chunk_response = processor(task, chunk, llm)
         if "NOT FOUND" not in chunk_response:
             responses.append(chunk_response)
 

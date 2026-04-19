@@ -1,14 +1,14 @@
 import json
 
-from ..agents.core import AgentDeepWebSearch, AgentUnstructuredDataProcessor, AgentPlan, AgentCodeWriterExecutor
-from ..models.core import llm
+from ..agents.core import AgentDeepWebSearch, AgentUnstructuredDataProcessor,  AgentCodeWriterExecutor
+from ..models.core import LLMBase
 from clog import get_logger
 
 
 logger = get_logger(__name__)
 
 
-def parse_out_resource_link(task: str) -> dict[str, str]:
+def parse_out_resource_link(task: str, llm: LLMBase) -> dict[str, str]:
     """
     Extract only the resource (URL/URI) mentioned in the task description.
 
@@ -48,7 +48,7 @@ Examples:
     return json.loads(task_response.text)
 
 
-def determine_next_step(task: str, resource: str = "", context: str = "") -> dict:
+def determine_next_step(task: str, llm: LLMBase, resource: str = "", context: str = "") -> dict:
     """
     Analyses a task and automatically determines which step from the plan should be executed next
     based on the context, then selects the single most appropriate capability for that step.

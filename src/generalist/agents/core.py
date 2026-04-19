@@ -1,12 +1,15 @@
-from typing import Type, Callable
+from typing import Type
 from dataclasses import dataclass
+
+from browser.search.web import BraveBrowser
 
 from .workflows.workflow_coder import CodeWriterExecutorWorkflow
 from .workflows.workflow_web_search import DeepWebSearchWorkflow
-from .. import tools
-from ..models.core import llm
-from ..tools import web_search, do_table_eda, write_code, execute_code, read_file, find_file, list_files, grep_files, \
-    replace_file_contents
+from ..models.core import MLFlowLLMWrapper
+from ..tools.base import BaseTool
+from ..tools.code import TableEdaTool, WriteCodeTool, ExecuteCodeTool
+from ..tools.file_handling import ReadFileTool, ListFilesTool, FindFileTool, GrepFilesTool, ReplaceFileContentsTool
+from ..tools.web_search import WebSearchTool
 from ..tools.text_processing.text_processing import process_text
 from ..tools.data_model import Message
 from clog import get_logger
@@ -48,20 +51,18 @@ class AgentDeepWebSearch(BaseAgent):
     """Capability for performing a deep web search."""
     name = "deep_web_search"
     capability = "searches and downloads web information, but does not process the content and retrieves information"
-    # Save the final state for inspection
     agent_state = None
-    tools: list[Callable] = [web_search]
 
-    def __init__(self, activity: str):
+    def __init__(self, activity: str, brave_search_session: BraveBrowser, llm: MLFlowLLMWrapper):
         super().__init__(activity=activity)
-        self.queries_per_question: int = 1
-        self.links_per_query: int = 1
+        self.llm = llm
+        self.tools: list[BaseTool] = [WebSearchTool(brave_search_session, llm)]
 
     def run(self) -> Message:
         agent_workflow = DeepWebSearchWorkflow(
             name=self.name,
             agent_capability=self.capability,
-            llm=llm,
+            llm=self.llm,
             context=[],
             task=self.activity,
             tools=self.tools
@@ -85,6 +86,10 @@ class AgentUnstructuredDataProcessor(BaseAgent):
     name = "unstructured_data_processing"
     capability = "analyzes or extracts information from the previously downloaded and available locally resources/text"
 
+    def __init__(self, activity: str, llm: MLFlowLLMWrapper):
+        super().__init__(activity=activity)
+        self.llm = llm
+
     def run(self, resources: list[Message]) -> Message:
         resource_contents = []
         for resource in resources:
@@ -99,7 +104,7 @@ class AgentUnstructuredDataProcessor(BaseAgent):
         if len(text) < 10:
             logger.warning("Probably no resources to analyse: ", text)
 
-        answers = process_text(self.activity, text, mode="remote")
+        answers = process_text(self.activity, text, self.llm, mode="remote")
         logger.info(f" After running {self.name}, the final state answers are :\n{answers}")
 
         return Message(
@@ -112,15 +117,21 @@ class AgentCodeWriterExecutor(BaseAgent):
     """Capability for writing and executing code"""
     name = "code_writing_execution"
     capability = "can write programming code, also execute only python code"
-    # Save the final state for inspection
     agent_state = None
-    tools: list[Callable] = [do_table_eda, write_code, execute_code, read_file, find_file, list_files, grep_files, replace_file_contents]
 
-    def run(self, resources:list[Message]) -> Message:
+    def __init__(self, activity: str, llm: MLFlowLLMWrapper):
+        super().__init__(activity=activity)
+        self.llm = llm
+        self.tools: list[BaseTool] = [
+            TableEdaTool(), WriteCodeTool(llm), ExecuteCodeTool(),
+            ReadFileTool(), FindFileTool(), ListFilesTool(), GrepFilesTool(), ReplaceFileContentsTool(),
+        ]
+
+    def run(self, resources: list[Message]) -> Message:
         agent_workflow = CodeWriterExecutorWorkflow(
             name=self.name,
             agent_capability=self.capability,
-            llm=llm,
+            llm=self.llm,
             context=resources,
             task=self.activity,
             tools=self.tools

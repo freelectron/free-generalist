@@ -45,11 +45,7 @@ class LLMBrowser:
         n_tokens = len(self.estimattion_n_token_encoding.encode(text))
         mlflow.log_metric( self.tokens_count_out_metric_name, n_tokens, step=self.n_call)
 
-    def __init__(self):
-        # TODO: make it nicer
-        assert os.getenv("CHROME_USER_DATA_DIR")
-        chrome_browser = ChromeBrowser()
-
+    def __init__(self, chrome_browser: ChromeBrowser):
         # Monitoring
         self.log_experiment_name =  type(self).__name__
         self.log_run_name = datetime.now().date().isoformat()
@@ -137,6 +133,7 @@ if __name__ == "__main__":
     mlflow.set_experiment("LLMBrowser")
 
     with mlflow.start_run(run_name="this"):
+        # FIXME: this is now wrong, needs chrome browser as input
         LLM_BROWSER = LLMBrowser()
 
         LLM_BROWSER.call("hello")
