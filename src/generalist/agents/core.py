@@ -2,9 +2,7 @@ from typing import Type
 from dataclasses import dataclass
 
 from browser.search.web import BraveBrowser
-
-from .workflows.workflow_coder import CodeWriterExecutorWorkflow
-from .workflows.workflow_web_search import DeepWebSearchWorkflow
+from .workflows.workflow_base import AgentWorkflow
 from ..models.core import MLFlowLLMWrapper
 from ..tools.base import BaseTool
 from ..tools.code import TableEdaTool, WriteCodeTool, ExecuteCodeTool
@@ -59,7 +57,7 @@ class AgentDeepWebSearch(BaseAgent):
         self.tools: list[BaseTool] = [WebSearchTool(brave_search_session, llm)]
 
     def run(self) -> Message:
-        agent_workflow = DeepWebSearchWorkflow(
+        agent_workflow = AgentWorkflow(
             name=self.name,
             agent_capability=self.capability,
             llm=self.llm,
@@ -128,7 +126,7 @@ class AgentCodeWriterExecutor(BaseAgent):
         ]
 
     def run(self, resources: list[Message]) -> Message:
-        agent_workflow = CodeWriterExecutorWorkflow(
+        agent_workflow = AgentWorkflow(
             name=self.name,
             agent_capability=self.capability,
             llm=self.llm,

@@ -62,7 +62,7 @@ class AgentWorkflow:
     and decision-making logic for different agent types.
     """
     tools: list[BaseTool] | None
-    graph: CompiledStateGraph
+    graph: CompiledStateGraph | None = None
 
     def __init__(
         self,
@@ -138,7 +138,7 @@ class AgentWorkflow:
             link = fp.name
             fp.close()
             logger.info(f"Wrote {state["tool_call_result"].name} to a file {link}.Output:\n{state["tool_call_result"].output}")
-            content = f"Output of {state["tool_call_result"].name} tool is stored in {link}."
+            content = f"Tool output of {state["tool_call_result"].name} for a plan's task '{state["plan"]}' is stored in {link}."
 
         state["context"].append(
             Message(
