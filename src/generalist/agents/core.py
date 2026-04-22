@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from browser.search.web import BraveBrowser
 from .workflows.workflow_base import AgentWorkflow
 from ..models.core import MLFlowLLMWrapper
-from ..tools.base import BaseTool
+from ..tools import BaseTool
 from ..tools.code import TableEdaTool, WriteCodeTool, ExecuteCodeTool
 from ..tools.file_handling import ReadFileTool, ListFilesTool, FindFileTool, GrepFilesTool, ReplaceFileContentsTool
 from ..tools.web_search import WebSearchTool

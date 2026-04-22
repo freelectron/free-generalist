@@ -1,5 +1,5 @@
 from generalist.models.core import MLFlowLLMWrapper
-from generalist.tools.base import BaseTool
+from generalist.tools import BaseTool
 from clog import get_logger
 
 

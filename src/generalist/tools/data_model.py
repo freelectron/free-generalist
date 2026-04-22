@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional, Any
 
@@ -48,3 +49,12 @@ class ShortAnswer:
 class AgentRunSummary:
     completed: bool
     summary: str
+
+
+class BaseTool(ABC):
+    name: str
+    description: str
+
+    @abstractmethod
+    def run(self, *args, **kwargs):
+        raise NotImplementedError

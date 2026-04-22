@@ -1,6 +1,6 @@
 from enum import Enum
 
-from .base import BaseTool
+from .data_model import BaseTool
 from .code import TableEdaTool, WriteCodeTool, ExecuteCodeTool
 from .file_handling import ReadFileTool, ListFilesTool, FindFileTool, GrepFilesTool, ReplaceFileContentsTool
 from .web_search import WebSearchTool

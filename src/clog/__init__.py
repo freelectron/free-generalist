@@ -41,18 +41,21 @@ def create_console_handler(log_format: str):
 class CLogger(logging.Logger):
     def switch_to_file(self):
         self.removeHandler(self.console_handler)
+        if not self.file_handler:
+            raise ValueError("Clog file path is not defined.")
         self.addHandler(self.file_handler)
 
     def switch_to_console(self):
         self.removeHandler(self.file_handler)
         self.addHandler(self.console_handler)
 
-    def __init__(self, name:str, level:int, file_name:str, simple_logging_format: bool = False):
+    def __init__(self, name:str, level:int, file_name:str | None, simple_logging_format: bool = False):
         super().__init__(name, level)
 
         log_format = SIMPLE_LOG_FORMAT if simple_logging_format else LOG_FORMAT
         self.console_handler = create_console_handler(log_format)
-        self.file_handler = create_file_handler(file_name)
+        if file_name:
+            self.file_handler = create_file_handler(file_name)
 
         # Default is the console handler
         self.addHandler(self.console_handler)

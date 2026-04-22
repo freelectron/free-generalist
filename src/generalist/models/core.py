@@ -8,7 +8,7 @@ import mlflow
 from browser import ChromeBrowser
 from browser.llm_browser import LLMBrowser
 from clog import get_logger
-from generalist.prompt_modifiers.ollama_tool_call import add_tool_directive
+from generalist.prompt_modifiers.ollama_tool_call import add_tool_directive, tool_to_llm_schema
 from generalist.prompt_modifiers.utils import parse_out_tool_call
 
 
@@ -22,11 +22,17 @@ class LLMToolCall:
         self.tool_name = name
         self.tool_output = output
 
+    def __str__(self):
+        return f"ToolCall({self.tool_name}): {self.tool_output}"
+
 class LLMResponse:
     def __init__(self, text: str, tool_call: LLMToolCall | None = None):
         self.text = text
-        self.response = text
+        self.response = self.text
         self.tool_call = tool_call
+
+    def __str__(self):
+        return f"LLMResponse({self.text}) with {str(self.tool_call)}"
 
 
 class LLMBase(ABC):
@@ -67,74 +73,6 @@ class LLMOpenClaw(LLMBase):
 
 
 class LLMBrowserWithTools(LLMBase):
-    @classmethod
-    def python_type_to_json_schema(cls, py_type):
-        origin = get_origin(py_type)
-
-        if origin is Union:
-            args = [arg for arg in get_args(py_type) if arg is not type(None)]
-            if len(args) == 1:
-                return cls.python_type_to_json_schema(args[0])
-
-        base = origin or py_type
-
-        if base is str:
-            return {"type": "string"}
-        elif base is int:
-            return {"type": "integer"}
-        elif base is float:
-            return {"type": "number"}
-        elif base is bool:
-            return {"type": "boolean"}
-
-        elif base is list:
-            args = get_args(py_type)
-            if args:
-                return {
-                    "type": "array",
-                    "items": cls.python_type_to_json_schema(args[0])
-                }
-            return {"type": "array"}
-
-        elif base is dict:
-            return {"type": "object"}
-
-        return {"type": "string"}
-
-    @classmethod
-    def tool_to_llm_schema(cls, tool) -> dict:
-        """
-        Ollama style function calling.
-        """
-        sig = inspect.signature(tool.run)
-        type_hints = get_type_hints(tool.run)
-
-        properties = {}
-        required = []
-
-        for name, param in sig.parameters.items():
-            if name == "self":
-                continue
-
-            param_type = type_hints.get(name, str)
-            properties[name] = cls.python_type_to_json_schema(param_type)
-
-            if param.default is inspect.Parameter.empty:
-                required.append(name)
-
-        return {
-            "type": "function",
-            "function": {
-                "name": tool.name,
-                "description": inspect.getdoc(tool.run) or tool.description,
-                "parameters": {
-                    "type": "object",
-                    "properties": properties,
-                    "required": required,
-                },
-            },
-        }
-
     def __init__(self, browser: ChromeBrowser):
         self.llm = LLMBrowser(browser)
 
@@ -144,10 +82,7 @@ class LLMBrowserWithTools(LLMBase):
         return LLMResponse(answer)
 
     def predict_and_call(self, prompt: str, tools: list, *args, **kwargs) -> LLMResponse:
-        tool_descriptions = [self.tool_to_llm_schema(tool) for tool in tools]
-        prompt += f"\nAvailable Tools:{tool_descriptions}"
-        prompt_formatted = add_tool_directive(prompt)
-        answer = self.complete(prompt=prompt_formatted)
+        answer = self.complete(prompt=prompt)
 
         tool_call = parse_out_tool_call(answer.text)
         if tool_call:
@@ -165,12 +100,12 @@ class LLMOllama(LLMBase):
         self.model = model
         self._timeout = request_timeout
 
-    def complete(self, prompt: str, **kwargs):
+    def complete(self, prompt: str, **kwargs) -> LLMResponse:
         result = ollama.chat(model=self.model, messages=[{"role": "user", "content": prompt}], **kwargs)
         return LLMResponse(result.message.content)
 
-    def predict_and_call(self, prompt: str, tools: list, **kwargs):
-        tool_schemas = [LLMBrowserWithTools.tool_to_llm_schema(tool) for tool in tools]
+    def predict_and_call(self, prompt: str, tools: list, **kwargs) -> LLMResponse:
+        tool_schemas = [tool_to_llm_schema(tool) for tool in tools]
         result = ollama.chat(
             model=self.model,
             messages=[{"role": "user", "content": prompt}],
@@ -212,10 +147,10 @@ class MLFlowLLMWrapper:
             raw_response = self.llm.complete(prompt, **kwargs)
 
             mlflow.log_metric("prompt_length", len(prompt))
-            mlflow.log_metric("response_length", len(raw_response.text))
+            mlflow.log_metric("response_length", len(str(raw_response.text)))
 
             mlflow.log_text(prompt, f"prompt_{caller_function}.txt")
-            mlflow.log_text(raw_response.text, f"response_{caller_function}.txt")
+            mlflow.log_text(str(raw_response.text), f"response_{caller_function}.txt")
             
             return raw_response
 
@@ -230,16 +165,11 @@ class MLFlowLLMWrapper:
             mlflow.log_param("llm_name", self.llm.model)
 
             raw_response = self.llm.predict_and_call(prompt=prompt, tools=tools, **kwargs)
-            # TODO: think about data handling here,
-            #  overwriting is loosing info about the original json for the tool call
-            if raw_response.tool_call:
-                raw_response.text = raw_response.tool_call.tool_output
-                raw_response.response = raw_response.text
 
             mlflow.log_metric("prompt_length", len(prompt))
-            mlflow.log_metric("response_length", len(raw_response.text))
+            mlflow.log_metric("response_length", len(str(raw_response.text)))
 
             mlflow.log_text(prompt, f"prompt_{caller_function}.txt")
-            mlflow.log_text(raw_response.text, f"response_{caller_function}.txt")
+            mlflow.log_text(str(raw_response.text), f"response_{caller_function}.txt")
 
             return raw_response

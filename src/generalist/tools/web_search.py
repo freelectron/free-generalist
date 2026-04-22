@@ -5,7 +5,7 @@ import httpx
 from browser.search.web import BraveBrowser
 from ..tools.data_model import WebSearchResult
 from ..models.core import MLFlowLLMWrapper
-from ..tools.base import BaseTool
+from . import BaseTool
 from clog import get_logger
 
 
@@ -18,27 +18,43 @@ logger = get_logger(__name__)
 
 def generate_search_queries(question: str, max_queries: int, llm: MLFlowLLMWrapper) -> list[str]:
     prompt = f"""
-    Create a list of general search engine queries for the following question: "{question}".
+    Generate up to {max_queries} short, precise search engine queries for the following question: "{question}".
 
-    Make sure that:
-    - Your output is a list separated by a "|" character and nothing else.
-    - You provide a MAXIMUM of {max_queries} search engine queries.
-    - Each query is SHORT and precise.
+    Your response MUST be valid JSON in the following format:
+    ```json
+    {{
+        "1": "<first search query>",
+        "2": "<second search query>"
+    }}
+    ```
 
-    Example Output:
-    Large urban population areas in Europe|Biggest cities in Europe
+    Example question: "What is the population of the biggest cities in Europe?"
+    Example output:
+    ```json
+    {{
+        "1": "largest cities in Europe by population",
+        "2": "most populated urban areas Europe 2024"
+    }}
+    ```
 
-    START NOW:
+    Rules:
+    - Output ONLY the JSON object above, nothing else.
+    - Each query must be SHORT and precise.
+    - Provide at most {max_queries} queries.
     """
 
     try:
+        import json
+        import regex as re
         response = llm.complete(prompt)
         response_text = response.text if hasattr(response, 'text') else str(response)
-        queries = [q.strip() for q in response_text.strip().split("|") if q.strip()]
+        json_match = re.search(r"json.*?(\{.*\})", response_text, re.DOTALL | re.IGNORECASE)
+        code_string = json_match.group(1) if json_match else response_text.strip()
+        parsed = json.loads(code_string)
+        queries = [v.strip() for v in parsed.values() if isinstance(v, str) and v.strip()]
         return queries[:max_queries] if queries else [question]
     except Exception as e:
         logger.error(f"Query generation failed, falling back to original question: {e}")
-
         return [question]
 
 
@@ -110,20 +126,19 @@ class WebSearchTool(BaseTool):
     def _download_content(self, resource: WebSearchResult) -> Optional[str]:
         if not resource.link or resource.link == NOT_FOUND_LITERAL or not resource.link.startswith('http'):
             return None
-        headers = {
-            'User-Agent': USER_AGENT,
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Encoding': 'gzip, deflate',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Referer': resource.link,
-        }
         try:
-            with httpx.Client(follow_redirects=True, timeout=DEFAULT_TIMEOUT) as client:
-                response = client.get(resource.link, headers=headers)
-                response.raise_for_status()
-                return self._extract_clean_text(response.text)
-        except httpx.HTTPError as e:
-            logger.warning(f"HTTP error downloading {resource.link}: {e}")
+            tab_id = f"page_search_result"
+            browser = self.search_session.browser
+            driver = browser.driver
+            if tab_id not in browser.opened_tabs.keys():
+                driver.switch_to.new_window('tab')
+                browser.opened_tabs[tab_id] = driver.window_handles[-1]
+
+            driver.switch_to.window(browser.opened_tabs[tab_id])
+            driver.get(resource.link)
+            browser.wait(0.5)
+
+            return self._extract_clean_text(driver.page_source)
         except Exception as e:
             logger.error(f"Unexpected error downloading {resource.link}: {e}")
         return None

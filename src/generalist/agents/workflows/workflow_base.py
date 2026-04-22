@@ -6,9 +6,8 @@ from typing_extensions import TypedDict
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.state import CompiledStateGraph
 
-from generalist.models.core import MLFlowLLMWrapper
-from generalist.tools import ToolOutputType, get_tool_type
-from generalist.tools.base import BaseTool
+from generalist.models.core import MLFlowLLMWrapper, LLMResponse
+from generalist.tools import ToolOutputType, get_tool_type, BaseTool
 from generalist.tools.data_model import Message, ShortAnswer
 from clog import get_logger
 from generalist.agents.workflows.tasks.reflection_evaluation import evaluate_task_completion
@@ -24,8 +23,8 @@ logger = get_logger(__name__)
 @dataclass
 class ExecuteToolOutput:
     name: str
-    type: ToolOutputType
-    output: str
+    type: ToolOutputType | None
+    output: LLMResponse
 
 
 class AgentState(TypedDict):
@@ -117,8 +116,14 @@ class AgentWorkflow:
         if "Encountered error" in str(response):
             raise ValueError(f"Stopping early {response}")
 
-        tool_name = response.tool_call.tool_name
-        state["tool_call_result"] = ExecuteToolOutput(name=tool_name, type=get_tool_type(tool_name), output=response.response)
+        if response.tool_call:
+            tool_name = response.tool_call.tool_name
+            state["tool_call_result"] = ExecuteToolOutput(name=tool_name, type=get_tool_type(tool_name), output=response)
+        else:
+            # TODO: is there a way to handle no-tool-call better?
+            logger.warning(f"No tool was called, response: {response}")
+            state["tool_call_result"] = ExecuteToolOutput(name="No tool executed", type=None, output=response)
+
         state["step"] += 1
 
         return state
@@ -134,7 +139,7 @@ class AgentWorkflow:
         # Note: this is an attempt to keep the context for an agent small
         if state["tool_call_result"].type == ToolOutputType.FILE:
             fp = tempfile.NamedTemporaryFile(delete=False, delete_on_close=False, mode="w", encoding="utf-8")
-            fp.write(state["tool_call_result"].output)
+            fp.write(str(state["tool_call_result"].output))
             link = fp.name
             fp.close()
             logger.info(f"Wrote {state["tool_call_result"].name} to a file {link}.Output:\n{state["tool_call_result"].output}")

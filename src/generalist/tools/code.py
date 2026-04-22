@@ -3,7 +3,7 @@ import sys
 import re
 
 from ..models.core import MLFlowLLMWrapper
-from .base import BaseTool
+from . import BaseTool
 from clog import get_logger
 
 

@@ -2,11 +2,10 @@ import fnmatch
 from pathlib import Path
 
 from clog import get_logger
-from .base import BaseTool
-
+from . import BaseTool
 
 GREP_EXCLUDE_PATTERNS = ["*.pyc", "*.log", "*.png", "*.jpg", "*.jpeg", "*.gif", "*.ico", "*.pdf"]
-GREP_EXCLUDE_DIRS = ["__pycache__", ".git", "node_modules", ".venv"]
+GREP_EXCLUDE_DIRS = ["__pycache__", ".git", "node_modules", ".venv", ".idea"]
 
 logger = get_logger(__name__)
 
