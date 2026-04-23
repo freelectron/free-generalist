@@ -3,8 +3,7 @@ import concurrent.futures
 from typing import Optional, List, Dict, Any
 
 from browser.search.web import BraveBrowser
-from crawl4ai import AsyncWebCrawler, BrowserConfig
-from .parser import html_to_markdown
+from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, DefaultMarkdownGenerator, CacheMode
 from ..tools.data_model import WebSearchResult
 from ..models.core import MLFlowLLMWrapper
 from . import BaseTool
@@ -16,6 +15,20 @@ DEFAULT_TIMEOUT = 15.0
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
 
 logger = get_logger(__name__)
+_run_config = CrawlerRunConfig(
+    markdown_generator=DefaultMarkdownGenerator(),
+    cache_mode=CacheMode.BYPASS,
+)
+
+
+async def html_to_markdown(html_content: str, crawler: AsyncWebCrawler) -> str:
+    result = await crawler.arun(url=f"raw:{html_content}", config=_run_config)
+    if not result.success:
+        raise Exception(f"Failed to convert HTML to Markdown: {result.error_message}")
+    md_obj = result.markdown
+    if hasattr(md_obj, 'raw_markdown'):
+        return md_obj.raw_markdown
+    return str(md_obj)
 
 
 def generate_search_queries(question: str, max_queries: int, llm: MLFlowLLMWrapper) -> list[str]:
