@@ -32,6 +32,7 @@ dependencies = [
     "openpyxl>=3.1.5", # for pandas to read xls
     "pyperclip>=1.11.0",
     "tiktoken>=0.12.0",
+    "crawl4ai>=0.8.6",
 ]
 
 [dependency-groups]

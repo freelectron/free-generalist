@@ -1,8 +1,10 @@
+import asyncio
+import concurrent.futures
 from typing import Optional, List, Dict, Any
-from bs4 import BeautifulSoup
-import httpx
 
 from browser.search.web import BraveBrowser
+from crawl4ai import AsyncWebCrawler, BrowserConfig
+from .parser import html_to_markdown
 from ..tools.data_model import WebSearchResult
 from ..models.core import MLFlowLLMWrapper
 from . import BaseTool
@@ -66,13 +68,13 @@ class WebSearchTool(BaseTool):
         self.search_session = search_session
         self.llm = llm
 
-    def run(self, question: str, n_queries: int = 1, links_per_query: int = 1) -> List[Dict[str, Any]]:
+    def run(self, question: str, n_queries: int = 2, links_per_query: int = 2) -> List[Dict[str, Any]]:
         """
         Searches the web and returns downloaded page contents for the given question.
 
         Args:
-            question: The user's query or question.
-            n_queries: Number of search queries to generate from the question.
+            question: The user's query or question (use default 2).
+            n_queries: Number of search queries to generate from the question (use default 2).
             links_per_query: Number of links to fetch per search query.
 
         Returns:
@@ -93,44 +95,48 @@ class WebSearchTool(BaseTool):
         unique_results = self._drop_non_unique_links(all_sources)
         logger.info(f"Retrieved {len(unique_results)} unique links.")
 
-        final_resources = []
-        for search in unique_results:
-            content = None
-            if search.link != NOT_FOUND_LITERAL:
-                content = self._download_content(search)
+        # Async part is needed: because crawl4ai spawns playwright behind the scenes and it takes ~4 seconds to do
+        # we wanna proceses all search results in one loop with one playwright instance
+        async def _fetch_all() -> List[Dict[str, Any]]:
+            async with AsyncWebCrawler(config=BrowserConfig(headless=True)) as crawler:
+                resources = []
+                for search in unique_results:
+                    content = None
+                    if search.link != NOT_FOUND_LITERAL:
+                        content = await self._download_content(search, crawler)
+                    if not content:
+                        content = search.metadata.get("web_page_summary")
+                    if content and content != NOT_FOUND_LITERAL:
+                        resources.append({"search_result": search, "content": content})
 
-            if not content:
-                content = search.metadata.get("web_page_summary")
+                return resources
 
-            if content and content != NOT_FOUND_LITERAL:
-                final_resources.append({
-                    "search_result": search,
-                    "content": content,
-                })
-
-        return final_resources
-
-    def _extract_clean_text(self, raw_html: str) -> str:
+        # Python is single threaded by default
+        # There is a single coroutine loop (in python, event loop) per single python thread.
+        # The asyncio.run function creates a new event loop where we can schedule coroutines without blocking the main loop.
+        # We can not schedule on the main loop directly because we are probably already in a running coroutine (e.g., python notebook cell running)
+        # which blocks the main loop, if we start a new blocking (coz by default we only have a single thread and therefore needs to await any coroutine that runs on the thread!) coroutine
+        # we would have to double block that (main) event loop which might be used by other coroutines in the main loop
         try:
-            soup = BeautifulSoup(raw_html, 'html.parser')
-            for element in soup(["script", "style", "nav", "footer", "header", "aside", "form", "svg"]):
-                element.decompose()
-            text = soup.get_text(separator=" ")
-            lines = (line.strip() for line in text.splitlines())
-            chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
-            return ' '.join(chunk for chunk in chunks if chunk)
-        except Exception as e:
-            logger.warning(f"HTML text extraction failed: {e}")
-            return ""
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
 
-    def _download_content(self, resource: WebSearchResult) -> Optional[str]:
+        if loop and loop.is_running():
+            # Create a thread pool with one thread (managed by OS)
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                return pool.submit(asyncio.run, _fetch_all()).result()
+
+        return asyncio.run(_fetch_all())
+
+    async def _download_content(self, resource: WebSearchResult, crawler: AsyncWebCrawler) -> Optional[str]:
         if not resource.link or resource.link == NOT_FOUND_LITERAL or not resource.link.startswith('http'):
             return None
         try:
-            tab_id = f"page_search_result"
+            tab_id = "page_search_result"
             browser = self.search_session.browser
             driver = browser.driver
-            if tab_id not in browser.opened_tabs.keys():
+            if tab_id not in browser.opened_tabs:
                 driver.switch_to.new_window('tab')
                 browser.opened_tabs[tab_id] = driver.window_handles[-1]
 
@@ -138,7 +144,7 @@ class WebSearchTool(BaseTool):
             driver.get(resource.link)
             browser.wait(0.5)
 
-            return self._extract_clean_text(driver.page_source)
+            return await html_to_markdown(driver.page_source, crawler)
         except Exception as e:
             logger.error(f"Unexpected error downloading {resource.link}: {e}")
         return None

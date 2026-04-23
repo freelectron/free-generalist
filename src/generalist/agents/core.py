@@ -6,7 +6,7 @@ from .workflows.workflow_base import AgentWorkflow
 from ..models.core import MLFlowLLMWrapper
 from ..tools import BaseTool
 from ..tools.code import TableEdaTool, WriteCodeTool, ExecuteCodeTool
-from ..tools.file_handling import ReadFileTool, ListFilesTool, FindFileTool, GrepFilesTool, ReplaceFileContentsTool
+from ..tools.file_handling import ReadFileTool, ListFilesTool, FindFileTool, GrepFilesTool, CreateReplaceFileContentsTool
 from ..tools.web_search import WebSearchTool
 from ..tools.text_processing.text_processing import process_text
 from ..tools.data_model import Message
@@ -122,7 +122,7 @@ class AgentCodeWriterExecutor(BaseAgent):
         self.llm = llm
         self.tools: list[BaseTool] = [
             TableEdaTool(), WriteCodeTool(llm), ExecuteCodeTool(),
-            ReadFileTool(), FindFileTool(), ListFilesTool(), GrepFilesTool(), ReplaceFileContentsTool(),
+            ReadFileTool(), FindFileTool(), ListFilesTool(), GrepFilesTool(), CreateReplaceFileContentsTool(),
         ]
 
     def run(self, resources: list[Message]) -> Message:

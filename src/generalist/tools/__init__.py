@@ -2,7 +2,7 @@ from enum import Enum
 
 from .data_model import BaseTool
 from .code import TableEdaTool, WriteCodeTool, ExecuteCodeTool
-from .file_handling import ReadFileTool, ListFilesTool, FindFileTool, GrepFilesTool, ReplaceFileContentsTool
+from .file_handling import ReadFileTool, ListFilesTool, FindFileTool, GrepFilesTool, CreateReplaceFileContentsTool
 from .web_search import WebSearchTool
 
 
@@ -23,7 +23,7 @@ MAPPING: dict[str, ToolOutputType] = {
     ListFilesTool.name: ToolOutputType.STRING,
     FindFileTool.name: ToolOutputType.STRING,
     GrepFilesTool.name: ToolOutputType.STRING,
-    ReplaceFileContentsTool.name: ToolOutputType.STRING,
+    CreateReplaceFileContentsTool.name: ToolOutputType.STRING,
     WebSearchTool.name: ToolOutputType.FILE,
 }
 

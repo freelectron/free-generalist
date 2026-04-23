@@ -150,13 +150,15 @@ class GrepFilesTool(BaseTool):
             return f"Error searching files: {e}"
 
 
-class ReplaceFileContentsTool(BaseTool):
-    name = "replace_file_contents"
-    description = "Overwrites the contents of destination_file with the contents of source_file."
+class CreateReplaceFileContentsTool(BaseTool):
+    name = "create_replace_file_contents"
+    description = ("Overwrites the contents of destination_file with the contents of source_file."
+                   "Creates destination_file if it does not exist.")
 
     def run(self, source_file: str, destination_file: str) -> str:
         """
         Overwrites the contents of destination_file with the contents of source_file.
+        Creates destination_file if it does not exist.
 
         Args:
             source_file: Absolute path to the file to copy from.
@@ -171,11 +173,10 @@ class ReplaceFileContentsTool(BaseTool):
             return f"Error: Source file not found: {source_file}"
         if not src.is_file():
             return f"Error: Source path is not a file: {source_file}"
-        if not dst.exists():
-            return f"Error: Destination file not found: {destination_file}"
-        if not dst.is_file():
+        if dst.exists() and not dst.is_file():
             return f"Error: Destination path is not a file: {destination_file}"
         try:
+            dst.parent.mkdir(parents=True, exist_ok=True)
             dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
             return f"Successfully copied contents from {source_file} to {destination_file}."
         except Exception as e:
