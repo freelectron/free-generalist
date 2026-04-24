@@ -14,19 +14,32 @@ def call_tool(
     tools: list[BaseTool] | None,
     llm: MLFlowLLMWrapper,
 ) -> LLMResponse:
+    # TODO: so the dilemma here is whether to add context like so
+    #  Context from previous steps:
+    #  {context}
     prompt = f"""
     Task: {task}
 
-    Context from previous steps:
-    {context}
-
     Plan: {plan}
 
-    Based on the plan above, you MUST call exactly ONE of the available tools in THIS PROMPT.
-    Tools:
+    **IMPORTANT: Your ONLY output must be a single JSON tool call — no explanation, no prose, nothing else.**
+
+    Available tools:
         {[tool_to_llm_schema(tool) for tool in tools] if tools else None}
-    Choose the most appropriate tool to make progress on the task.
-    YOUR OUTPUT MUST BE A JSON TOOL CALL!
+
+    Required output format:
+    ```json
+    {{
+        "function": {{
+            "name": "<tool_name>",
+            "arguments": {{
+                "<param>": "<value>"
+            }}
+        }}
+    }}
+    ```
+
+    Pick exactly ONE tool from the list above that best advances the plan. Output only the JSON.
     """
     prompt_formatted = add_tool_directive(prompt)
 

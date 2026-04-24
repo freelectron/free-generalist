@@ -8,7 +8,6 @@ from ..tools import BaseTool
 from ..tools.code import TableEdaTool, WriteCodeTool, ExecuteCodeTool
 from ..tools.file_handling import ReadFileTool, ListFilesTool, FindFileTool, GrepFilesTool, CreateReplaceFileContentsTool
 from ..tools.web_search import WebSearchTool
-from ..tools.text_processing.text_processing import process_text
 from ..tools.data_model import Message
 from clog import get_logger
 from ..tools.text_processing.utils import read_local_file
@@ -51,10 +50,16 @@ class AgentDeepWebSearch(BaseAgent):
     capability = "searches and downloads web information, but does not process the content and retrieves information"
     agent_state = None
 
-    def __init__(self, activity: str, brave_search_session: BraveBrowser, llm: MLFlowLLMWrapper):
+    def __init__(
+        self,
+        activity: str,
+        brave_search_session: BraveBrowser,
+        llm: MLFlowLLMWrapper,
+        tools: list[BaseTool]|None = None
+    ):
         super().__init__(activity=activity)
         self.llm = llm
-        self.tools: list[BaseTool] = [WebSearchTool(brave_search_session, llm)]
+        self.tools: list[BaseTool] = tools or [WebSearchTool(brave_search_session, llm), ReadFileTool()]
 
     def run(self) -> Message:
         agent_workflow = AgentWorkflow(
@@ -79,48 +84,16 @@ class AgentDeepWebSearch(BaseAgent):
         )
 
 
-class AgentUnstructuredDataProcessor(BaseAgent):
-    """Capability for processing unstructured text."""
-    name = "unstructured_data_processing"
-    capability = "analyzes or extracts information from the previously downloaded and available locally resources/text"
-
-    def __init__(self, activity: str, llm: MLFlowLLMWrapper):
-        super().__init__(activity=activity)
-        self.llm = llm
-
-    def run(self, resources: list[Message]) -> Message:
-        resource_contents = []
-        for resource in resources:
-            content = resource.content
-            if resource.link:
-                content = read_local_file(resource.link)
-            else:
-                logger.warning(f"No link available for resource: {resource}")
-            resource_contents.append(content)
-
-        text  = "\n".join(resource_contents)
-        if len(text) < 10:
-            logger.warning("Probably no resources to analyse: ", text)
-
-        answers = process_text(self.activity, text, self.llm, mode="remote")
-        logger.info(f" After running {self.name}, the final state answers are :\n{answers}")
-
-        return Message(
-            provided_by=self.name,
-            content=f"Query: {self.activity}\nAnswers: {answers}",
-        )
-
-
 class AgentCodeWriterExecutor(BaseAgent):
     """Capability for writing and executing code"""
     name = "code_writing_execution"
     capability = "can write programming code, also execute only python code"
     agent_state = None
 
-    def __init__(self, activity: str, llm: MLFlowLLMWrapper):
+    def __init__(self, activity: str, llm: MLFlowLLMWrapper, tools: list[BaseTool]|None = None):
         super().__init__(activity=activity)
         self.llm = llm
-        self.tools: list[BaseTool] = [
+        self.tools: list[BaseTool] = tools or [
             TableEdaTool(), WriteCodeTool(llm), ExecuteCodeTool(),
             ReadFileTool(), FindFileTool(), ListFilesTool(), GrepFilesTool(), CreateReplaceFileContentsTool(),
         ]
@@ -150,7 +123,6 @@ class AgentPlan:
     agent: Type[BaseAgent]
     capability_map = {
         AgentDeepWebSearch.name: AgentDeepWebSearch,
-        AgentUnstructuredDataProcessor.name: AgentUnstructuredDataProcessor,
         AgentCodeWriterExecutor.name: AgentCodeWriterExecutor,
     }
 

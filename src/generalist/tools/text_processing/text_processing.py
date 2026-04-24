@@ -1,31 +1,20 @@
-from typing import Literal
+import os
 
 from langchain_text_splitters import CharacterTextSplitter
 
 from generalist.models.core import MLFlowLLMWrapper
-from clog import get_logger
+from generalist.tools import BaseTool
 from generalist.tools.text_processing.utils import parse_config
+from clog import get_logger
 
 
 logger = get_logger(__name__)
 
+DEFAULT_CHUNK_SIZE = 40000
+DEFAULT_CHUNK_OVERLAP = 500
 
-def _process_chunk_local(task: str, text: str, llm: MLFlowLLMWrapper) -> str:
-    """Performs a task on a single block of text using an LLM.
 
-    This function is a general-purpose processor that asks an LLM to execute
-    an instruction based only on the provided context.
-
-    Note:
-        This function requires a configured LLM client, represented here as `llm`.
-
-    Args:
-        task: The instruction to be performed (e.g., "Summarise this text").
-        text: The context text for the LLM to work with.
-
-    Returns:
-        The raw string response from the LLM.
-    """
+def _process_chunk(task: str, text: str, llm: MLFlowLLMWrapper) -> str:
     prompt = f"""
     Perform the instruction/task in the user's question.
     Use only the information provided in the context.
@@ -36,70 +25,50 @@ def _process_chunk_local(task: str, text: str, llm: MLFlowLLMWrapper) -> str:
     CONTEXT:
     {text}
 
-    **IMPORTANT**: If the text does not include the SPECIFIC information required for the task, output "NOT FOUND".
-    Otherwise, provide the direct answer.
+    If the text does not contain the relevant info, just output 1-2 short sentence what it contains.  
     """
-    llm_result = llm.complete(prompt)
-    return llm_result.text
+    return llm.complete(prompt).text
 
 
-def _process_chunk_remote(task: str, text: str, llm: MLFlowLLMWrapper) -> str:
-    prompt = f"""
-    Perform the instruction/task in the user's question.
-    Use only the information provided in the context.
+class ProcessTextFileTool(BaseTool):
+    name = "process_text_file"
+    description = ("Reads a text file and performs a processing task on its contents using an LLM, chunk by chunk. "
+                   "Writing the result as in database")
 
-    TASK:
-    {task}
+    def __init__(self, llm: MLFlowLLMWrapper):
+        self.llm = llm
 
-    CONTEXT:
-    {text}
+    def run(self, file_path: str, task: str) -> str:
+        """
+        Reads a file and performs a task on its text content using an LLM.
 
-    **IMPORTANT**: If the text does not include the SPECIFIC information required for the task, output "NOT FOUND".
-    Otherwise, provide the direct answer.
-    """
+        Args:
+            file_path: Path to the text file to process.
+            task: Instruction to perform on the file content (e.g. "Summarise this text", "Extract all dates").
 
-    # TODO: replace with llm dependency injection
-    answer = llm.complete(prompt)
+        Returns:
+            str: Concatenated results from all chunks where the information was found.
+        """
+        try:
+            with open(os.path.expanduser(file_path), "r", encoding="utf-8") as f:
+                text = f.read()
+        except Exception as e:
+            logger.error(f"Failed to read file {file_path}: {e}")
+            return f"Error reading file: {e}"
 
-    return answer.text
+        conf = parse_config(tool_function="process_text", param="mode")
+        conf_local = conf.get("local", {}) if conf else {}
+        chunk_size = conf_local.get("chunk_size", DEFAULT_CHUNK_SIZE)
+        chunk_overlap = conf_local.get("chunk_overlap", DEFAULT_CHUNK_OVERLAP)
 
+        splitter = CharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap, separator=" ")
+        chunks = splitter.split_text(text)
 
-def process_text(task: str, text: str, llm: MLFlowLLMWrapper, mode: Literal["local", "remote"] = "local") -> list[str]:
-    """
-    Splits a large text into chunks and processes each chunk with an LLM to perform the mentioned task.
+        responses = []
+        for chunk in chunks:
+            if chunk:
+                result = _process_chunk(task, chunk, self.llm)
+                if "NOT FOUND" not in result:
+                    responses.append(result)
 
-    This is useful for analysing documents that are too large to fit into a
-    single LLM context window. Each chunk is processed independently.
-
-    Args:
-        task: The task to perform on each chunk of text.
-        text: The entire body of text to be processed.
-        mode: Whether to use local or remote llm for text processing
-
-    Returns:
-        A list of string responses, with one response for each processed chunk.
-    """
-    conf_proces_text = parse_config(tool_function="process_text", param="mode")
-    conf_proces_text_mode = conf_proces_text.get(mode, None)
-    default_chunk_size = 4000
-    default_chunk_overlap = 500
-    chunk_size = conf_proces_text_mode.get("chunk_size", default_chunk_size) if conf_proces_text_mode else default_chunk_size
-    chunk_overlap = conf_proces_text_mode.get("chunk_overlap", default_chunk_overlap) if conf_proces_text_mode else default_chunk_overlap
-
-    text_splitter = CharacterTextSplitter(
-        chunk_size=chunk_size,
-        chunk_overlap=chunk_overlap,
-        separator=" "  
-    )
-    chunks = text_splitter.split_text(text)
-
-    processor = _process_chunk_remote if mode == "remote" else _process_chunk_local
-
-    responses = []
-    for chunk in chunks:
-        if chunk:
-            chunk_response = processor(task, chunk, llm)
-        if "NOT FOUND" not in chunk_response:
-            responses.append(chunk_response)
-
-    return responses
+        return "\n\n".join(responses) if responses else "NOT FOUND"

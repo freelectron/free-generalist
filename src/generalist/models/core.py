@@ -28,7 +28,6 @@ class LLMToolCall:
 class LLMResponse:
     def __init__(self, text: str, tool_call: LLMToolCall | None = None):
         self.text = text
-        self.response = self.text
         self.tool_call = tool_call
 
     def __str__(self):

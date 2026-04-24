@@ -24,7 +24,7 @@ logger = get_logger(__name__)
 class ExecuteToolOutput:
     name: str
     type: ToolOutputType | None
-    output: LLMResponse
+    output: str
 
 
 class AgentState(TypedDict):
@@ -118,11 +118,11 @@ class AgentWorkflow:
 
         if response.tool_call:
             tool_name = response.tool_call.tool_name
-            state["tool_call_result"] = ExecuteToolOutput(name=tool_name, type=get_tool_type(tool_name), output=response)
+            state["tool_call_result"] = ExecuteToolOutput(name=tool_name, type=get_tool_type(tool_name), output=str(response))
         else:
             # TODO: is there a way to handle no-tool-call better?
             logger.warning(f"No tool was called, response: {response}")
-            state["tool_call_result"] = ExecuteToolOutput(name="No tool executed", type=None, output=response)
+            state["tool_call_result"] = ExecuteToolOutput(name="No tool executed", type=None, output=str(response))
 
         state["step"] += 1
 
@@ -139,11 +139,13 @@ class AgentWorkflow:
         # Note: this is an attempt to keep the context for an agent small
         if state["tool_call_result"].type == ToolOutputType.FILE:
             fp = tempfile.NamedTemporaryFile(delete=False, delete_on_close=False, mode="w", encoding="utf-8")
-            fp.write(str(state["tool_call_result"].output))
+            fp.write(state["tool_call_result"].output)
             link = fp.name
             fp.close()
             logger.info(f"Wrote {state["tool_call_result"].name} to a file {link}.Output:\n{state["tool_call_result"].output}")
-            content = f"Tool output of {state["tool_call_result"].name} for a plan's task '{state["plan"]}' is stored in {link}."
+            content = (f"Tool '{state["tool_call_result"].name}' was executed for task '{state["plan"]}'. "
+                       f"The full output was too large for context and has been written to file: {link}. "
+                       f"You MAY use this path to read the output in the next step.")
 
         state["context"].append(
             Message(

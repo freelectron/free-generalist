@@ -81,13 +81,13 @@ class WebSearchTool(BaseTool):
         self.search_session = search_session
         self.llm = llm
 
-    def run(self, question: str, n_queries: int = 2, links_per_query: int = 2) -> List[Dict[str, Any]]:
+    def run(self, question: str, n_queries: int = 1, links_per_query: int = 1) -> List[Dict[str, Any]]:
         """
         Searches the web and returns downloaded page contents for the given question.
 
         Args:
-            question: The user's query or question (use default 2).
-            n_queries: Number of search queries to generate from the question (use default 2).
+            question: The user's query or question (mostly default 1).
+            n_queries: Number of search queries to generate from the question (mostly use default 1).
             links_per_query: Number of links to fetch per search query.
 
         Returns:
@@ -95,6 +95,10 @@ class WebSearchTool(BaseTool):
         """
         candidate_queries = generate_search_queries(question, n_queries, self.llm)
         logger.info(f"Generated search queries: {candidate_queries}")
+
+        # FIXME: this should be adjusted later
+        n_queries = 1
+        links_per_query = 1
 
         all_sources = []
         for query in candidate_queries:

@@ -28,13 +28,12 @@ def plan_next_action(
 
     Available tools:
     {tools_str}
-
-    Based on the task and context, reason about:
-    1. What information do you have so far?
-    2. What is still missing to complete the task?
-    3. Which tool should you use next and why?
-
-    Provide a brief plan for the next action (2-3 sentences).
+    
+    **IMPORTANT**
+    Based on the task and available context, produce a plan only — DO NOT EXECUTE ANYTHING!
+    Identify which tool to use next and why, given what is already known.
+    The plan MUST BE SELF-CONTAINED: include all key details (e.g. file paths, parameters, values from context) needed to execute the next step without referring back to prior context.
+    Be concise (2-3 sentences).
     """
 
     response = llm.complete(prompt)

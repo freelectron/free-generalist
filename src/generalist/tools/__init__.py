@@ -4,6 +4,7 @@ from .data_model import BaseTool
 from .code import TableEdaTool, WriteCodeTool, ExecuteCodeTool
 from .file_handling import ReadFileTool, ListFilesTool, FindFileTool, GrepFilesTool, CreateReplaceFileContentsTool
 from .web_search import WebSearchTool
+from .text_processing.text_processing import ProcessTextFileTool
 
 
 STRING_TOOL_OUTPUT = "string"
@@ -25,6 +26,7 @@ MAPPING: dict[str, ToolOutputType] = {
     GrepFilesTool.name: ToolOutputType.STRING,
     CreateReplaceFileContentsTool.name: ToolOutputType.STRING,
     WebSearchTool.name: ToolOutputType.FILE,
+    ProcessTextFileTool.name: ToolOutputType.STRING,
 }
 
 

@@ -86,9 +86,9 @@ def add_tool_directive(prompt: str):
     ```
     """
     prompt_delta = """
-    If you need to use a tool, output only a single json like so
+     You MUST output exactly one JSON tool call and nothing else — no explanation, no prose.
      
-    Given: Available Tools [get_weather]
+    Example (assumed tools:[get_weather]): 
     ''```json
     {
         "function": {
@@ -112,7 +112,8 @@ def add_tool_directive(prompt: str):
                 }
     }
     ```''
-    Note: do not modify or expand the (file)paths you are given. 
+    Use this exact structure, substituting the tool name and arguments from the available tools.                                                                                                                                      
+    Do not modify or expand any file paths you are given.    
     """
 
     return prompt + "\n" + prompt_delta

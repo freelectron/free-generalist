@@ -1,7 +1,11 @@
 # Infrastructure
 
-This is repo for all the docker files needed to develop, run and evaluate the agent.
+This is repo for all extra services needed to develop, run and evaluate the agent.
 
+
+## Playwright
+
+Agent's parsing capabilities require playwright if we are using `crawl4ai` package. 
 
 ## MLFlow 
 Checkout [here](https://mlflow.org/docs/latest/self-hosting/#other-deployment-options) 
@@ -13,3 +17,8 @@ cd docker-compose
 cp .env.dev.example .env
 docker compose up -d
 ```
+
+
+## MongoDB 
+
+Implemented to store text info as key-value. 
