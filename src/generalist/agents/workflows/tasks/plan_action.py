@@ -1,4 +1,4 @@
-from generalist.models.core import MLFlowLLMWrapper
+from generalist.dialer.core import MLFlowLLMWrapper
 from generalist.tools import BaseTool
 from clog import get_logger
 

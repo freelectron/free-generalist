@@ -2,7 +2,7 @@ import os
 
 from langchain_text_splitters import CharacterTextSplitter
 
-from generalist.models.core import MLFlowLLMWrapper
+from generalist.dialer.core import MLFlowLLMWrapper
 from generalist.tools import BaseTool
 from generalist.tools.text_processing.utils import parse_config
 from clog import get_logger

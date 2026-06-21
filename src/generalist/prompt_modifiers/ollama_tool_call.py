@@ -86,7 +86,7 @@ def add_tool_directive(prompt: str):
     ```
     """
     prompt_delta = """
-     You MUST output exactly one JSON tool call and nothing else — no explanation, no prose.
+     You MUST output exactly one JSON tool call if the user message requires it from you.
      
     Example (assumed tools:[get_weather]): 
     ''```json

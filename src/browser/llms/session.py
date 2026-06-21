@@ -318,7 +318,7 @@ class Gemini(LLMSession):
         """, editor_div, message)
 
         send_button = self.browser.waiter.until(
-            EC.element_to_be_clickable((By.CSS_SELECTOR, "div.input-area button.send-button"))
+            EC.element_to_be_clickable((By.CSS_SELECTOR, "button[aria-label='Send message']"))
         )
         send_button.click()
         # Wait till the llm the first token, that when the div for the answer appears
@@ -583,9 +583,16 @@ class Mistral(LLMSession):
 
 
 if __name__ == "__main__":
-    import dotenv
-    dotenv.load_dotenv()
+    # Should be first to load all the env vars for browser
+    import os
+    from dotenv import load_dotenv
 
+    from browser import ChromeBrowser
+    from generalist.dialer.core import LLMDialerWithTools, MLFlowLLMWrapper
+
+    load_dotenv()
+
+    assert os.getenv("CHROME_USER_DATA_DIR", None)
     chrome_browser = ChromeBrowser()
     assert chrome_browser.chrome_user_data_dir.startswith("/User")
 
@@ -607,7 +614,6 @@ if __name__ == "__main__":
     # except Exception as e:
     #     print(f"An error occurred: {e}")
 
-    # from browser import ChromeBrowser, chrome_browser
     # gemini = Gemini(chrome_browser, session_id="gemini")
     # try:
     #     gemini.send_message("What are you trained on?")
@@ -617,28 +623,24 @@ if __name__ == "__main__":
     # except Exception as e:
     #     print(f"An error occurred: {e}")
 
-    # from browser import ChromeBrowser, chrome_browser
-    # gemini = Qwen(chrome_browser, session_id="qwen")
+    # qwen = Qwen(chrome_browser, session_id="qwen")
     # try:
-    #     gemini.send_message("What are you trained on?")
-    #     print(gemini.past_questions_answers[-1])
-    #     gemini.send_message("What is your latest knowledge cutoff?")
-    #     print(gemini.past_questions_answers[-1])
+    #     qwen.send_message("What are you trained on?")
+    #     print(qwen.past_questions_answers[-1])
+    #     qwen.send_message("What is your latest knowledge cutoff?")
+    #     print(qwen.past_questions_answers[-1])
     # except Exception as e:
     #     print(f"An error occurred: {e}")
 
-    from browser import ChromeBrowser
+    # claude = Claude(chrome_browser, session_id="claude")
+    # try:
+    #     claude.send_message("What are you trained on?")
+    #     print(claude.past_questions_answers[-1])
+    #     claude.send_message("What is your latest knowledge cutoff?")
+    #     print(claude.past_questions_answers[-1])
+    # except Exception as e:
+    #     print(f"An error occurred: {e}")
 
-    claude = Claude(chrome_browser, session_id="qwen")
-    try:
-        claude.send_message("What are you trained on?")
-        print(claude.past_questions_answers[-1])
-        claude.send_message("What is your latest knowledge cutoff?")
-        print(claude.past_questions_answers[-1])
-    except Exception as e:
-        print(f"An error occurred: {e}")
-    #
-    # from browser import ChromeBrowser, chrome_browser
     # mistral = Mistral(chrome_browser, session_id="qwen")
     # try:
     #     mistral.send_message("What are you trained on?")
@@ -647,6 +649,5 @@ if __name__ == "__main__":
     #     print(mistral.past_questions_answers[-1])
     # except Exception as e:
     #     print(f"An error occurred: {e}")
-
 
     sleep(360)

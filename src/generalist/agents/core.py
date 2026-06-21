@@ -3,10 +3,11 @@ from dataclasses import dataclass
 
 from browser.search.web import BraveBrowser
 from .workflows.workflow_base import AgentWorkflow
-from ..models.core import MLFlowLLMWrapper
+from ..dialer.core import MLFlowLLMWrapper
 from ..tools import BaseTool
 from ..tools.code import TableEdaTool, WriteCodeTool, ExecuteCodeTool
-from ..tools.file_handling import ReadFileTool, ListFilesTool, FindFileTool, GrepFilesTool, CreateReplaceFileContentsTool
+from ..tools.file_handling import ReadFileTool, ListFilesTool, FindFileTool, GrepFilesTool, \
+    CreateReplaceFileContentsTool, CreateFile
 from ..tools.web_search import WebSearchTool
 from ..tools.data_model import Message
 from clog import get_logger
@@ -23,7 +24,8 @@ class BaseAgent:
     def __init__(self, activity: str):
         """
         FIXME: CHANGE AGENT TO BE ACTION AGNOSTIC
-               Probably agents just need tools and/or resources as input
+               Probably agents just need tools and/or resources as input,
+               while activity should be given later on a call?
 
         Initializes the capability with a specific activity.
 
@@ -96,6 +98,7 @@ class AgentCodeWriterExecutor(BaseAgent):
         self.tools: list[BaseTool] = tools or [
             TableEdaTool(), WriteCodeTool(llm), ExecuteCodeTool(),
             ReadFileTool(), FindFileTool(), ListFilesTool(), GrepFilesTool(), CreateReplaceFileContentsTool(),
+            CreateFile()
         ]
 
     def run(self, resources: list[Message]) -> Message:

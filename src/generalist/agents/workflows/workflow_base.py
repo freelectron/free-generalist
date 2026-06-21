@@ -6,7 +6,7 @@ from typing_extensions import TypedDict
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.state import CompiledStateGraph
 
-from generalist.models.core import MLFlowLLMWrapper, LLMResponse
+from generalist.dialer.core import MLFlowLLMWrapper, LLMResponse
 from generalist.tools import ToolOutputType, get_tool_type, BaseTool
 from generalist.tools.data_model import Message, ShortAnswer
 from clog import get_logger
@@ -16,7 +16,7 @@ from generalist.agents.workflows.tasks.execute_tool import call_tool
 from generalist.agents.workflows.tasks.reflect import reflect_on_progress
 
 
-MAX_STEPS = 5
+MAX_STEPS = 12
 logger = get_logger(__name__)
 
 

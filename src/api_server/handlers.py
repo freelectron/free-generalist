@@ -4,11 +4,11 @@ import time
 from fastapi.responses import StreamingResponse
 
 from clog import get_logger
-from generalist.models.core import LLMOpenClaw
+from generalist.dialer.core import LLMBrowserServer
 
 
 logger = get_logger(__name__, simple=True)
-MODEL_NAME_OPENCLAW = 'web'
+MODEL_NAME_BROWSER = 'web'
                                                                                                                                                                             
                                                                                                                                                                             
 def _chat_completions_sse_chunk(content: str, created: int) -> str:
@@ -16,7 +16,7 @@ def _chat_completions_sse_chunk(content: str, created: int) -> str:
         'id': 'chatcmpl-123',
         'object': 'chat.completion.chunk',
         'created': created,
-        'model': MODEL_NAME_OPENCLAW,
+        'model': MODEL_NAME_BROWSER,
         'choices': [
             {
                 'index': 0,
@@ -32,7 +32,7 @@ def _chat_completions_sse_done(created: int) -> str:
         'id': 'chatcmpl-123',
         'object': 'chat.completion.chunk',
         'created': created,
-        'model': MODEL_NAME_OPENCLAW,
+        'model': MODEL_NAME_BROWSER,
         'choices': [{'index': 0, 'delta': {}, 'finish_reason': 'stop'}],
     }
     return f"data: {json.dumps(data)}\n\ndata: [DONE]\n\n"
@@ -44,7 +44,7 @@ async def _chat_completions_stream_answer(answer: str) -> AsyncGenerator[str, No
         yield _chat_completions_sse_chunk(answer[i:i + chunk_size], created)
     yield _chat_completions_sse_done(created)
 
-async def handle_chat_completions(req: dict[str, Any], llm: LLMOpenClaw):
+async def handle_chat_completions(req: dict[str, Any], llm: LLMBrowserServer):
     answer, tool = llm.complete_with_tools(str(req))
 
     if tool:
@@ -61,7 +61,7 @@ async def handle_chat_completions(req: dict[str, Any], llm: LLMOpenClaw):
         'id': 'chatcmpl-123',
         'object': 'chat.completion',
         'created': int(time.time()),
-        'model': MODEL_NAME_OPENCLAW,
+        'model': MODEL_NAME_BROWSER,
         'choices': [
             {
                 'index': 0,
@@ -83,7 +83,7 @@ async def handle_chat_completions(req: dict[str, Any], llm: LLMOpenClaw):
 def _api_chat_sse_chunk(content: str, created: int) -> str:
     data = {
         'created_at': created,
-        'model': MODEL_NAME_OPENCLAW,
+        'model': MODEL_NAME_BROWSER,
         'message': {
             "role": "assistant",
             "content": content,
@@ -95,7 +95,7 @@ def _api_chat_sse_chunk(content: str, created: int) -> str:
 def _api_chat_tool(created: int, tool: dict) -> str:
     data = {
         'created_at': created,
-        'model': MODEL_NAME_OPENCLAW,
+        'model': MODEL_NAME_BROWSER,
         'message': {
             "role": "assistant",
             "content": f"Trying to create a tool: {tool}",
@@ -109,7 +109,7 @@ def _api_chat_tool(created: int, tool: dict) -> str:
 def _api_chat_sse_done(created: int) -> str:
     data = {
         'created_at': created,
-        'model': MODEL_NAME_OPENCLAW,
+        'model': MODEL_NAME_BROWSER,
         'message': {
             "role": "assistant",
             "content": "",
@@ -130,7 +130,7 @@ async def _api_chat_stream_answer(answer: str, tool: dict) -> AsyncGenerator[str
 
     yield _api_chat_sse_done(created)
 
-async def handle_api_chat(req: dict, llm: LLMOpenClaw):
+async def handle_api_chat(req: dict, llm: LLMBrowserServer):
     answer, tool = llm.complete_with_tools(str(req))
 
     logger.info(f"[LLM] Output:\n{answer}\nTool:\n{tool}")
@@ -144,7 +144,7 @@ async def handle_api_chat(req: dict, llm: LLMOpenClaw):
 
     return json.dumps({
         'created_at': int(time.time()),
-        'model': MODEL_NAME_OPENCLAW,
+        'model': MODEL_NAME_BROWSER,
         'message': {
             "role": "assistant",
             "content": answer,

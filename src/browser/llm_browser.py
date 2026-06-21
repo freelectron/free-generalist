@@ -40,7 +40,7 @@ class LLMBrowser:
         return [self.GEMINI_SESSION, self.CHATGPT_SESSION]
 
     def __init__(self, chrome_browser: ChromeBrowser):
-        self.estimattion_n_token_encoding = tiktoken.encoding_for_model("gpt-4o")
+        self.estimation_n_token_encoding = tiktoken.encoding_for_model("gpt-4o")
         self.n_call = 0
 
         self.CHATGPT_SESSION = ChatGPT(chrome_browser, session_id="closed_ai")

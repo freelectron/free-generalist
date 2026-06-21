@@ -182,3 +182,32 @@ class CreateReplaceFileContentsTool(BaseTool):
         except Exception as e:
             logger.error(f"Error replacing {destination_file} with {source_file}: {e}")
             return f"Error replacing file contents: {e}"
+
+
+class CreateFile(BaseTool):
+    name = "create_file"
+    description = "Creates a file at destination_file with the provided contents. Creates parent directories if needed."
+
+    def run(self, destination_file: str, contents: str) -> str:
+        """
+        Creates a file and writes the provided contents into it.
+        Overwrites the file if it already exists.
+
+        Args:
+            destination_file: Absolute path to the file to create.
+            contents: Text or code to write into the file.
+
+        Returns:
+            str: Confirmation message or error.
+        """
+        dst = Path(destination_file).expanduser()
+        if dst.exists() and not dst.is_file():
+            return f"Error: Destination path is not a file: {destination_file}"
+        try:
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            dst.write_text(contents, encoding="utf-8")
+            return f"Successfully created {destination_file}."
+        except Exception as e:
+            logger.error(f"Error creating {destination_file}: {e}")
+            return f"Error creating file: {e}"
+

@@ -4,7 +4,7 @@ from typing import Annotated
 
 from fastapi import FastAPI, Request, Depends
 
-from generalist.models.core import LLMOpenClaw
+from generalist.dialer.core import LLMBrowserServer
 from .handlers import (
     handle_chat_completions,
     handle_models_list,
@@ -19,17 +19,24 @@ logger = get_logger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Treat llm browser as a DB/RPC connection"""
-    # FIXME: need to init ChromBrowser and pass it in llm
-    llm = LLMOpenClaw()
+    # Should be first to load all the env vars for browser
+    import os
+    from dotenv import load_dotenv
+    from browser import ChromeBrowser
+    load_dotenv()
+    assert os.getenv("CHROME_USER_DATA_DIR", None)
+    chrome_browser = ChromeBrowser()
+
+    llm = LLMBrowserServer(chrome_browser)
     assert llm
     app.state.llm = llm
     yield
     del llm
 
-def get_llm(request: Request) -> LLMOpenClaw:
+def get_llm(request: Request) -> LLMBrowserServer:
     return request.app.state.llm
 
-LLMDep = Annotated[LLMOpenClaw, Depends(get_llm)]
+LLMDep = Annotated[LLMBrowserServer, Depends(get_llm)]
 
 app = FastAPI(
     title="OpenAI-Compatible API",
@@ -65,7 +72,6 @@ async def api_chat(request: Request,  llm: LLMDep):
 
     full_request = _build_full_request(request, body)
 
-    logger.info(f"INCOMING:\n{json.dumps(full_request, indent=2, ensure_ascii=False, default=str)}")
     return await handle_api_chat(full_request, llm)
 
 

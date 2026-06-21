@@ -1,9 +1,11 @@
 import inspect
+import json
 from abc import ABC
 from typing import Callable, get_origin, Union, get_args, get_type_hints
 
 import ollama
 import mlflow
+import requests
 
 from browser import ChromeBrowser
 from browser.llm_browser import LLMBrowser
@@ -34,7 +36,7 @@ class LLMResponse:
         return f"LLMResponse({self.text}) with {str(self.tool_call)}"
 
 
-class LLMBase(ABC):
+class LLMToolsExecutor(ABC):
     """
     Base class for interacting with LLM API's.
     """
@@ -55,11 +57,12 @@ class LLMBase(ABC):
         raise NotImplementedError
 
 
-class LLMOpenClaw(LLMBase):
+class LLMBrowserServer:
+    """ Parse out the tool call and return it separately without executing. """
     def __init__(self, browser: ChromeBrowser):
         self.llm = LLMBrowser(browser)
 
-    def complete(self, prompt: str, *args, **kwargs):
+    def complete(self, prompt: str):
         answer = self.llm.call(prompt)
         return LLMResponse(answer)
 
@@ -71,19 +74,28 @@ class LLMOpenClaw(LLMBase):
         return answer.text, tool_call
 
 
-class LLMBrowserWithTools(LLMBase):
-    def __init__(self, browser: ChromeBrowser):
-        self.llm = LLMBrowser(browser)
+class LLMDialerWithTools(LLMToolsExecutor):
+    """ Also executes tools that are returned by an LLM. """
+    def __init__(self, host: str, port: int, auth_token: str):
+        self._api_base = f"http://{host}:{port}"
+        self._auth_token = auth_token
 
     def complete(self, prompt: str, *args, **kwargs) -> LLMResponse:
-        answer =  self.llm.call(message=prompt)
-
-        return LLMResponse(answer)
+        resp = requests.post(
+            f"{self._api_base}/api/chat",
+            json={"model": "web", "messages": [{"role": "user", "content": prompt}], "stream": False},
+            headers={"Authorization": f"Bearer {self._auth_token}"},
+        )
+        resp.raise_for_status()
+        return LLMResponse(json.loads(resp.json())["message"]["content"])
 
     def predict_and_call(self, prompt: str, tools: list, *args, **kwargs) -> LLMResponse:
         answer = self.complete(prompt=prompt)
 
+        # FIXME: the tool will be neatly in the response's json. Parsing out is handled by the api.
         tool_call = parse_out_tool_call(answer.text)
+
+        print(f"PARSED TOOL:\n{tool_call}")
         if tool_call:
             available_tools = {tool.name: tool for tool in tools}
             tool_name = tool_call["function"]["name"]
@@ -94,7 +106,8 @@ class LLMBrowserWithTools(LLMBase):
 
         return answer
 
-class LLMOllama(LLMBase):
+class LLMOllamaWithTools(LLMToolsExecutor):
+    """ Also executes tools that are returned by an LLM. """
     def __init__(self, model:str, request_timeout):
         self.model = model
         self._timeout = request_timeout
@@ -130,7 +143,7 @@ class MLFlowLLMWrapper:
     Generic class to wrap calls to llm with MLFlow logging.
     Use this class for debugging LLM calls, monkeypatch the original
     """
-    def __init__(self, llm_instance: LLMBase):
+    def __init__(self, llm_instance: LLMToolsExecutor):
         self.llm = llm_instance
 
     def complete(self, prompt, **kwargs) -> LLMResponse:
@@ -172,3 +185,8 @@ class MLFlowLLMWrapper:
             mlflow.log_text(str(raw_response.text), f"response_{caller_function}.txt")
 
             return raw_response
+
+
+if __name__ == "__main__":
+    dialer = LLMDialerWithTools(host="localhost", port=8000, auth_token="0000")
+    print(dialer.complete("What was the capital of Prussia?"))

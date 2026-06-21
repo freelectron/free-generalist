@@ -2,7 +2,7 @@ import subprocess
 import sys
 import re
 
-from ..models.core import MLFlowLLMWrapper
+from ..dialer.core import MLFlowLLMWrapper
 from . import BaseTool
 from clog import get_logger
 

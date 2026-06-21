@@ -5,7 +5,7 @@ from typing import Optional, List, Dict, Any
 from browser.search.web import BraveBrowser
 from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, DefaultMarkdownGenerator, CacheMode
 from ..tools.data_model import WebSearchResult
-from ..models.core import MLFlowLLMWrapper
+from ..dialer.core import MLFlowLLMWrapper
 from . import BaseTool
 from clog import get_logger
 

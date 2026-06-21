@@ -2,7 +2,7 @@ import json
 import regex as re
 
 from generalist.tools.data_model import AgentRunSummary
-from generalist.models.core import MLFlowLLMWrapper
+from generalist.dialer.core import MLFlowLLMWrapper
 from clog import get_logger
 
 

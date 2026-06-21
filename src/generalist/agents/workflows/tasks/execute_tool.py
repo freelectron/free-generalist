@@ -1,4 +1,4 @@
-from generalist.models.core import MLFlowLLMWrapper, LLMResponse
+from generalist.dialer.core import MLFlowLLMWrapper, LLMResponse
 from generalist.prompt_modifiers.ollama_tool_call import tool_to_llm_schema, add_tool_directive
 from generalist.tools import BaseTool
 from clog import get_logger
@@ -16,7 +16,7 @@ def call_tool(
 ) -> LLMResponse:
     # TODO: so the dilemma here is whether to add context like so
     #  Context from previous steps:
-    #  {context}
+    #  {context} or leave this prompt without context
     prompt = f"""
     Task: {task}
 
