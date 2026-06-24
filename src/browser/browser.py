@@ -6,6 +6,8 @@ from typing import Any, Dict, Optional
 import undetected as uc
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.actions.action_builder import ActionBuilder
+from selenium.webdriver.common.actions.pointer_input import PointerInput
 
 from clog import get_logger
 
@@ -31,17 +33,22 @@ class ChromeBrowser:
 
         return options
 
+    def _move_mouse_absolute(self, x: int, y: int):
+        mouse = PointerInput("mouse", "mouse")
+        builder = ActionBuilder(self.driver, mouse=mouse)
+        builder.pointer_action.move_to_location(x, y)
+        builder.perform()
+
     def random_mouse_move(self, n_moves: int = 3):
         viewport_w = self.driver.execute_script("return window.innerWidth")
         viewport_h = self.driver.execute_script("return window.innerHeight")
-        # Pick a random starting position and move the cursor there absolutely
-        start_x = int(random.uniform(viewport_w * 0.2, viewport_w * 0.8))
-        start_y = int(random.uniform(viewport_h * 0.2, viewport_h * 0.8))
-        ActionChains(self.driver).move_by_offset(start_x, start_y).perform()
+        cur_x = int(random.uniform(viewport_w * 0.2, viewport_w * 0.8))
+        cur_y = int(random.uniform(viewport_h * 0.2, viewport_h * 0.8))
+        self._move_mouse_absolute(cur_x, cur_y)
         for _ in range(n_moves):
-            x_diff = int(random.uniform(-50, 50))
-            y_diff = int(random.uniform(-20, 20))
-            ActionChains(self.driver).move_by_offset(x_diff, y_diff).perform()
+            cur_x = max(0, min(viewport_w - 1, cur_x + int(random.uniform(-50, 50))))
+            cur_y = max(0, min(viewport_h - 1, cur_y + int(random.uniform(-20, 20))))
+            self._move_mouse_absolute(cur_x, cur_y)
             self.wait(0.2)
 
     def __init__(self, profile: Optional[str] = None):
