@@ -29,7 +29,6 @@ class LLMBrowser:
     def create_long_message_sessions(self) -> list[LLMSession]:
         """Sessions that allow a high number of tokens in a single paste."""
         return [
-            self.CLAUDE_SESSION,
             self.DEEPSEEK_SESSION,
             self.MISTRAL_SESSION,
             self.QWEN_SESSION,
@@ -37,7 +36,14 @@ class LLMBrowser:
 
     def create_small_message_sessions(self) -> list[LLMSession]:
         """Sessions that can only (easily) handle a low number of tokens."""
-        return [self.GEMINI_SESSION, self.CHATGPT_SESSION]
+        return [
+            # TODO: Google are suckers, for some reason their internal prompt processing conflicts with how I compose mine.
+            #  the request hangs for a long time for short prompts sometimes (i.e., prompts with jsons are problematic for google)
+            # self.GEMINI_SESSION,
+
+            self.CHATGPT_SESSION,
+            self.CLAUDE_SESSION
+        ]
 
     def __init__(self, chrome_browser: ChromeBrowser):
         self.estimation_n_token_encoding = tiktoken.encoding_for_model("gpt-4o")

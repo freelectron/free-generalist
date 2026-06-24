@@ -39,7 +39,7 @@ def call_tool(
     }}
     ```
 
-    Pick exactly ONE tool from the list above that best advances the plan. Output only the JSON.
+    Pick exactly ONE tool from the list above that best advances the plan. Output only the JSON (with ```json ``` formatting).
     """
     prompt_formatted = add_tool_directive(prompt)
 

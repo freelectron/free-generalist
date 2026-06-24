@@ -32,9 +32,16 @@ class ChromeBrowser:
         return options
 
     def random_mouse_move(self, n_moves: int = 3):
-        for i in range(n_moves):
-            x_diff, y_diff = int(random.uniform(0, 20)), int(random.uniform(0, 20))
-            self.actions.move_by_offset(x_diff, y_diff).perform()
+        viewport_w = self.driver.execute_script("return window.innerWidth")
+        viewport_h = self.driver.execute_script("return window.innerHeight")
+        # Pick a random starting position and move the cursor there absolutely
+        start_x = int(random.uniform(viewport_w * 0.2, viewport_w * 0.8))
+        start_y = int(random.uniform(viewport_h * 0.2, viewport_h * 0.8))
+        ActionChains(self.driver).move_by_offset(start_x, start_y).perform()
+        for _ in range(n_moves):
+            x_diff = int(random.uniform(-50, 50))
+            y_diff = int(random.uniform(-20, 20))
+            ActionChains(self.driver).move_by_offset(x_diff, y_diff).perform()
             self.wait(0.2)
 
     def __init__(self, profile: Optional[str] = None):

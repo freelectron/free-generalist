@@ -45,7 +45,9 @@ async def _chat_completions_stream_answer(answer: str) -> AsyncGenerator[str, No
     yield _chat_completions_sse_done(created)
 
 async def handle_chat_completions(req: dict[str, Any], llm: LLMBrowserServer):
-    answer, tool = llm.complete_with_tools(str(req))
+    answer, tool = llm.complete_with_tools(str(req["body"]["messages"]))
+
+    logger.info(f"[LLM] Output:\n{answer}\nTool:\n{tool}")
 
     if tool:
         raise NotImplementedError("Calling ClosedAI API with tools is not implemented.")
@@ -131,7 +133,7 @@ async def _api_chat_stream_answer(answer: str, tool: dict) -> AsyncGenerator[str
     yield _api_chat_sse_done(created)
 
 async def handle_api_chat(req: dict, llm: LLMBrowserServer):
-    answer, tool = llm.complete_with_tools(str(req))
+    answer, tool = llm.complete_with_tools(str(req["body"]["messages"]))
 
     logger.info(f"[LLM] Output:\n{answer}\nTool:\n{tool}")
 

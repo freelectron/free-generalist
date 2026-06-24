@@ -77,15 +77,16 @@ class ListFilesTool(BaseTool):
 
 class FindFileTool(BaseTool):
     name = "find_file"
-    description = "Finds files matching a glob pattern within a directory."
+    description = "Finds files matching a glob pattern within a directory, optionally recursively."
 
-    def run(self, directory: str, pattern: str) -> str:
+    def run(self, directory: str, pattern: str, recursive: bool = True) -> str:
         """
         Finds files matching a glob pattern within a directory.
 
         Args:
             directory: Absolute path to the directory to search.
             pattern: Glob pattern to match filenames against (e.g., '*.py', 'config*.json').
+            recursive: If True (default), search all subdirectories recursively.
 
         Returns:
             str: Newline-separated list of matching file paths.
@@ -96,7 +97,8 @@ class FindFileTool(BaseTool):
         if not path.is_dir():
             return f"Error: Path is not a directory: {directory}"
         try:
-            matches = [str(p) for p in path.rglob(pattern) if p.is_file() and not _is_excluded(p)]
+            candidates = path.rglob(pattern) if recursive else path.glob(pattern)
+            matches = [str(p) for p in candidates if p.is_file() and not _is_excluded(p)]
             if not matches:
                 return f"No files matching '{pattern}' found in {directory}."
             return "\n".join(matches)

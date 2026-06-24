@@ -95,7 +95,6 @@ class LLMDialerWithTools(LLMToolsExecutor):
         # FIXME: the tool will be neatly in the response's json. Parsing out is handled by the api.
         tool_call = parse_out_tool_call(answer.text)
 
-        print(f"PARSED TOOL:\n{tool_call}")
         if tool_call:
             available_tools = {tool.name: tool for tool in tools}
             tool_name = tool_call["function"]["name"]

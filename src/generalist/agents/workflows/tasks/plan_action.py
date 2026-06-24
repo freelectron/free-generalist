@@ -38,6 +38,5 @@ def plan_next_action(
 
     response = llm.complete(prompt)
     plan = response.text.strip()
-    logger.info(f"Plan: {plan}")
 
     return plan

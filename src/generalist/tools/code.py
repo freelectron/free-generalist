@@ -164,7 +164,7 @@ class ExecuteCodeTool(BaseTool):
                 output.append("STDERR:")
                 output.append(result.stderr)
 
-            logger.info(f"Executed code from {file_path} with error {result.stderr}")
+            logger.info(f"Executed code from {file_path} {'with error' if result.stderr else 'no error'}")
             return "\n".join(output) if output else "Code executed successfully with no output."
 
         except subprocess.TimeoutExpired:

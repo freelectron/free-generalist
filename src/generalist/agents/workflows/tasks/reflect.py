@@ -29,5 +29,5 @@ def reflect_on_progress(
 
     response = llm.complete(prompt)
     reflection = response.text.strip()
-    logger.info(f"Reflection: {reflection}")
+
     return reflection

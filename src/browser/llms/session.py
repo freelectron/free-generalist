@@ -270,23 +270,19 @@ class Gemini(LLMSession):
     def __init__(self, browser: ChromeBrowser, session_id: str = None):
         super().__init__(browser, session_id)
 
-    def _retrieve_last_answer(self, time_out: int, n_tries: int = 3):
+    def _retrieve_last_answer(self, time_out: int):
         start_time = time()
         last_answer = ""
-        for i in range(n_tries):
-            # TODO: check if this will wait for till the content is fully loaded
-            answer = self.browser.waiter.until(
-                EC.presence_of_all_elements_located(
-                    (By.CSS_SELECTOR, "model-response")
-                )
-            )[-1]
-            # TODO: how to get notified that the new message has fully arrived?
-            #  Now it is done by waiting and checking against the state of it
-            if len(answer.text) > len(last_answer):
-                last_answer = answer.text
-            else:
-                if time() - start_time > time_out:
+        while True:
+            answers = self.browser.driver.find_elements(By.CSS_SELECTOR, "model-response")
+            if answers:
+                answer_text = answers[-1].text
+                if len(answer_text) > len(last_answer):
+                    last_answer = answer_text
+                else:
                     break
+            if time() - start_time > time_out:
+                break
             self.browser.wait(2)
 
         return last_answer
@@ -297,25 +293,28 @@ class Gemini(LLMSession):
             if 'class="chat-app' in html_source:
                 return
             else:
-                self.browser.wait(5)
+                self.browser.wait(2)
 
         raise BrowserTimeOutError(
             "Failed to start chat session. Page did not load correctly."
         )
 
     def _send_message(self, message: str):
+        self.browser.random_mouse_move(1)
         editor_div = self.browser.waiter.until(
             EC.element_to_be_clickable((By.CSS_SELECTOR, "div.input-area"))
         )
         editor_div.click()
         self.browser.random_mouse_move(2)
-        self.browser.wait(1)
+        self.browser.wait(0.5)
 
         self.browser.driver.execute_script("""
             arguments[0].focus();
             document.execCommand('selectAll', false, null);
             document.execCommand('insertText', false, arguments[1]);
         """, editor_div, message)
+
+        self.browser.random_mouse_move(1)
 
         send_button = self.browser.waiter.until(
             EC.element_to_be_clickable((By.CSS_SELECTOR, "button[aria-label='Send message']"))
@@ -614,14 +613,30 @@ if __name__ == "__main__":
     # except Exception as e:
     #     print(f"An error occurred: {e}")
 
-    # gemini = Gemini(chrome_browser, session_id="gemini")
-    # try:
-    #     gemini.send_message("What are you trained on?")
-    #     print(gemini.past_questions_answers[-1])
-    #     gemini.send_message("What is your latest knowledge cutoff?")
-    #     print(gemini.past_questions_answers[-1])
-    # except Exception as e:
-    #     print(f"An error occurred: {e}")
+    prompt = """
+    You should help me with this, please:
+    [{'role': 'user', 'content': "\n    Role: can write programming code, also execute only python code\n\n    Task: In the folder /freelectron/yaub/frontend/simple-yaub/src/components, 
+    find files that with `serverRenderedPost` in them, read them, and check for syntax and type errors .\n\n    
+    Context from previous steps:\n    [Message(provided_by='user', content='', link='', metadata=None)]\n\n    \n\n   
+     Available tools:\n    - do_table_eda: Performs Exploratory Data Analysis on a CSV/Excel/Parquet file.\n- write_code: 
+     Writes Python code that accomplishes a task, optionally using provided context.\n- execute_code: Executes a Python file and returns its stdout/stderr output.\n- 
+     read_file: Reads and returns the contents of a file.\n- find_file: Finds files matching a glob pattern within a directory, optionally recursively.\n- 
+     list_files: Lists files in a directory, optionally recursively.\n- grep_files: Finds files whose contents contain all of the given substrings.
+     \n- create_replace_file_contents: Overwrites the contents of destination_file with the contents of source_file.Creates destination_file if it does not exist.\n- 
+     create_file: Creates a file at destination_file with the provided contents. Creates parent directories if needed.\n    \n    
+     **IMPORTANT**\n    Based on the task and available context, produce a plan only — DO NOT EXECUTE ANYTHING!\n    
+     Identify which tool to use next and why, given what is already known.\n    
+     The plan MUST BE SELF-CONTAINED: include all key details (e.g. file paths, parameters, values from context) needed to execute the next step without referring back to prior context.\n  
+       Be concise (2-3 sentences).\n    "}]
+    """
+    gemini = Gemini(chrome_browser, session_id="gemini")
+    try:
+        gemini.send_message(prompt)
+        print(gemini.past_questions_answers[-1])
+        gemini.send_message("What is your latest knowledge cutoff?")
+        print(gemini.past_questions_answers[-1])
+    except Exception as e:
+        print(f"An error occurred: {e}")
 
     # qwen = Qwen(chrome_browser, session_id="qwen")
     # try:
