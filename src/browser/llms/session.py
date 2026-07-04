@@ -587,7 +587,6 @@ if __name__ == "__main__":
     from dotenv import load_dotenv
 
     from browser import ChromeBrowser
-    from generalist.dialer.core import LLMDialerWithTools, MLFlowLLMWrapper
 
     load_dotenv()
 

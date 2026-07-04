@@ -69,25 +69,10 @@ def tool_to_llm_schema(tool) -> dict:
     }
 
 def add_tool_directive(prompt: str):
-    """
-    Instruction to the llm to ouput tools in a specific format.
-
-    Example:
-    ```json
-    {
-        "function": {
-          "name": "get_weather",
-          "arguments": {
-            "city": "Amsterdam",
-            "units": "celsius"
-          }
-        }
-    }
-    ```
-    """
     prompt_delta = """
-    Unless the use is asking for a PLAN or REFLECTION, you should output exactly one JSON tool call. 
-     
+    !!!VERY IMPORTANT: You should only take into account tools that you are given in your prompt!!!
+    
+    Unless the user is asking for a PLAN or REFLECTION, you should output exactly one JSON in your output (tool call to be executed by client). 
     Example (assumed tools:[get_weather]): 
     ''```json
     {
@@ -100,7 +85,6 @@ def add_tool_directive(prompt: str):
         }
     }
     ```''
-    
     Only output a single json in the exact format:
     ''```json
     {
@@ -112,8 +96,8 @@ def add_tool_directive(prompt: str):
                 }
     }
     ```''
-    Use this exact structure, substituting the tool name and arguments from the available tools.                                                                                                                                      
-    Do not modify or expand any file paths you are given.    
+    Use this exact structure, substituting the tool name and arguments from the available tools in the prompt.                                                                                                                                      
+    Do not modify or expand any file paths you are given. Your tools calls should be in the prompt.   
     """
 
     return "You should help me with this, please:\n" + prompt + "\n" + prompt_delta

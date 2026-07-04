@@ -49,7 +49,7 @@ class LLMToolsExecutor(ABC):
         """
         raise NotImplementedError
 
-    def predict_and_call(self, prompt: str, tools: list[Callable], *args, **kwargs) -> LLMResponse:
+    def complete_and_call(self, prompt: str, tools: list[Callable], *args, **kwargs) -> LLMResponse:
         """
         First predicts if we need to use a tool from `tools` based on the `prompt`.
         If yes, calls the tool and returns the result.
@@ -64,14 +64,8 @@ class LLMBrowserServer:
 
     def complete(self, prompt: str):
         answer = self.llm.call(prompt)
-        return LLMResponse(answer)
 
-    def complete_with_tools(self, prompt: str):
-        prompt_modified = add_tool_directive(prompt)
-        answer = self.complete(prompt_modified)
-        tool_call = parse_out_tool_call(answer.text)
-
-        return answer.text, tool_call
+        return answer
 
 
 class LLMDialerWithTools(LLMToolsExecutor):
@@ -89,7 +83,7 @@ class LLMDialerWithTools(LLMToolsExecutor):
         resp.raise_for_status()
         return LLMResponse(json.loads(resp.json())["message"]["content"])
 
-    def predict_and_call(self, prompt: str, tools: list, *args, **kwargs) -> LLMResponse:
+    def complete_and_call(self, prompt: str, tools: list, *args, **kwargs) -> LLMResponse:
         answer = self.complete(prompt=prompt)
 
         # FIXME: the tool will be neatly in the response's json. Parsing out is handled by the api.
@@ -115,7 +109,7 @@ class LLMOllamaWithTools(LLMToolsExecutor):
         result = ollama.chat(model=self.model, messages=[{"role": "user", "content": prompt}], **kwargs)
         return LLMResponse(result.message.content)
 
-    def predict_and_call(self, prompt: str, tools: list, **kwargs) -> LLMResponse:
+    def complete_and_call(self, prompt: str, tools: list, **kwargs) -> LLMResponse:
         tool_schemas = [tool_to_llm_schema(tool) for tool in tools]
         result = ollama.chat(
             model=self.model,
@@ -165,7 +159,7 @@ class MLFlowLLMWrapper:
             
             return raw_response
 
-    def predict_and_call(self, prompt, tools, **kwargs) -> LLMResponse:
+    def complete_and_call(self, prompt, tools, **kwargs) -> LLMResponse:
         # Get caller function name and module
         caller_frame = inspect.currentframe().f_back
         caller_function = caller_frame.f_code.co_name
@@ -175,7 +169,7 @@ class MLFlowLLMWrapper:
             mlflow.log_param("caller", f"{caller_module}.{caller_function}")
             mlflow.log_param("llm_name", self.llm.model)
 
-            raw_response = self.llm.predict_and_call(prompt=prompt, tools=tools, **kwargs)
+            raw_response = self.llm.complete_and_call(prompt=prompt, tools=tools, **kwargs)
 
             mlflow.log_metric("prompt_length", len(prompt))
             mlflow.log_metric("response_length", len(str(raw_response.text)))
@@ -187,5 +181,14 @@ class MLFlowLLMWrapper:
 
 
 if __name__ == "__main__":
+    from generalist.tools.data_model import BaseTool
+
     dialer = LLMDialerWithTools(host="localhost", port=8000, auth_token="0000")
-    print(dialer.complete("What was the capital of Prussia?"))
+    prompt = add_tool_directive("What was the capital of Prussia? Available tools:  1) 'get_capital' - get capital of the country, args: 'country' = specify the country.")
+    class BT(BaseTool):
+        name: "get_capital"
+        description: "Dummy"
+
+        def run(self):
+            print("OK")
+    print(dialer.complete_and_call(prompt, tools=[BT]))

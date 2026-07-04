@@ -43,7 +43,7 @@ def call_tool(
     """
     prompt_formatted = add_tool_directive(prompt)
 
-    response = llm.predict_and_call(prompt=prompt_formatted, tools=tools)
+    response = llm.complete_and_call(prompt=prompt_formatted, tools=tools)
     logger.info(f"Tool called: {response.tool_call.tool_name if response.tool_call else 'none'}")
 
     return response
