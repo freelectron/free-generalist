@@ -107,7 +107,6 @@ class AgentWorkflow:
         """Execute a tool based on the current plan."""
         response = call_tool(
             task=state["task"],
-            context=str(state["context"]),
             plan=state["plan"],
             tools=self.tools,
             llm=self.llm,

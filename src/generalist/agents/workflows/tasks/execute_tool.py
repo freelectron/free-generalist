@@ -9,7 +9,6 @@ logger = get_logger(__name__)
 
 def call_tool(
     task: str,
-    context: str,
     plan: str | None,
     tools: list[BaseTool] | None,
     llm: MLFlowLLMWrapper,
@@ -24,7 +23,7 @@ def call_tool(
 
     **IMPORTANT: Your ONLY output must be a single JSON tool call — no explanation, no prose, nothing else.**
 
-    Available tools:
+    Available client side tools:
         {[tool_to_llm_schema(tool) for tool in tools] if tools else None}
 
     Required output format:
@@ -39,7 +38,7 @@ def call_tool(
     }}
     ```
 
-    Pick exactly ONE tool from the list above that best advances the plan. Output only the JSON (with ```json ``` formatting).
+    Pick exactly ONE tool from the list above that best advances the plan. Output only the JSON (with ```json ``` formatting) of it call.
     """
     prompt_formatted = add_tool_directive(prompt)
 

@@ -70,7 +70,7 @@ def tool_to_llm_schema(tool) -> dict:
 
 def add_tool_directive(prompt: str):
     prompt_delta = """
-    !!!VERY IMPORTANT: You should only take into account tools that you are given in your prompt!!!
+    !IMPORTANT: You should only take into account client side tools that you are given in your prompt!
     
     Unless the user is asking for a PLAN or REFLECTION, you should output exactly one JSON in your output (tool call to be executed by client). 
     Example (assumed tools:[get_weather]): 
