@@ -70,34 +70,37 @@ def tool_to_llm_schema(tool) -> dict:
 
 def add_tool_directive(prompt: str):
     prompt_delta = """
-    !IMPORTANT: You should only take into account client side tools that you are given in your prompt!
-    
-    Unless the user is asking for a PLAN or REFLECTION, you should output exactly one JSON in your output (tool call to be executed by client). 
-    Example (assumed tools:[get_weather]): 
-    ''```json
-    {
-        "function": {
-          "name": "get_weather",
-          "arguments": {
-            "city": "Amsterdam",
-            "units": "celsius"
-          }
-        }
-    }
-    ```''
-    Only output a single json in the exact format:
-    ''```json
+    IMPORTANT:
+    - Use ONLY the client-side tools listed in the prompt above. Do not invent or reference any other tools.
+    - Do not modify or expand any file paths provided in the prompt; pass them through verbatim as tool arguments.
+    - When asked for a PLAN or REFLECTION, respond as requested and do NOT emit a tool call.
+    - Otherwise, your ENTIRE response must be a single JSON tool call wrapped in a ```json``` fenced block. No prose, no explanation, no additional text.
+
+    Required output format (substitute <tool_name> and arguments with values from an available tool):
+    ```json
     {
         "function": {
             "name": "<tool_name>",
-            "arguments": 
-                {
-                    <arguments also in json format that given in ur prompt>
-                }
+            "arguments": {
+                "<param_1>": "<value_1>",
+                "<param_2>": "<value_2>"
+            }
+        }
     }
-    ```''
-    Use this exact structure, substituting the tool name and arguments from the available tools in the prompt.                                                                                                                                      
-    Do not modify or expand any file paths you are given. Your tools calls should be in the prompt.   
+    ```
+
+    Example (assuming the available tool `get_weather` accepts `city` and `units`):
+    ```json
+    {
+        "function": {
+            "name": "get_weather",
+            "arguments": {
+                "city": "Amsterdam",
+                "units": "celsius"
+            }
+        }
+    }
+    ```
     """
 
     return "You should help me with this, please:\n" + prompt + "\n" + prompt_delta

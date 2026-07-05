@@ -1,3 +1,5 @@
+import json
+
 from generalist.dialer.core import MLFlowLLMWrapper, LLMResponse
 from generalist.prompt_modifiers.ollama_tool_call import tool_to_llm_schema, add_tool_directive
 from generalist.tools import BaseTool
@@ -13,32 +15,22 @@ def call_tool(
     tools: list[BaseTool] | None,
     llm: MLFlowLLMWrapper,
 ) -> LLMResponse:
-    # TODO: so the dilemma here is whether to add context like so
-    #  Context from previous steps:
-    #  {context} or leave this prompt without context
+    # Context from previous steps is intentionally NOT injected here: plan_next_action is
+    # required to emit a self-contained plan (file paths, params, values distilled from the
+    # full context), so the executor only needs task + plan + tool schemas to pick a tool.
+    if not tools:
+        raise ValueError("call_tool requires at least one tool, got none.")
+
+    tool_schemas = [tool_to_llm_schema(tool) for tool in tools]
     prompt = f"""
     Task: {task}
 
-    Plan: {plan}
-
-    **IMPORTANT: Your ONLY output must be a single JSON tool call — no explanation, no prose, nothing else.**
+    Plan: {plan or ""}
 
     Available client side tools:
-        {[tool_to_llm_schema(tool) for tool in tools] if tools else None}
+    {json.dumps(tool_schemas, indent=2)}
 
-    Required output format:
-    ```json
-    {{
-        "function": {{
-            "name": "<tool_name>",
-            "arguments": {{
-                "<param>": "<value>"
-            }}
-        }}
-    }}
-    ```
-
-    Pick exactly ONE tool from the list above that best advances the plan. Output only the JSON (with ```json ``` formatting) of it call.
+    Pick exactly ONE tool from the list above that best advances the plan.
     """
     prompt_formatted = add_tool_directive(prompt)
 
