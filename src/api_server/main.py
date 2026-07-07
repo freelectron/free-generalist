@@ -36,6 +36,8 @@ async def lifespan(app: FastAPI):
 def get_llm(request: Request) -> LLMBrowserServer:
     return request.app.state.llm
 
+# Llm is still a global var, now only create and delete handled within the api lifetime
+# we can just have it as global var too
 LLMDep = Annotated[LLMBrowserServer, Depends(get_llm)]
 
 app = FastAPI(

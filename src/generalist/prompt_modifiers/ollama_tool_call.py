@@ -1,3 +1,4 @@
+import json
 from typing import Callable, get_origin, Union, get_args, get_type_hints
 import inspect
 
@@ -68,8 +69,13 @@ def tool_to_llm_schema(tool) -> dict:
         },
     }
 
-def add_tool_directive(prompt: str):
-    prompt_delta = """
+def add_tool_directive(prompt: str, tools: list):
+    tool_schemas = [tool_to_llm_schema(tool) for tool in tools]
+
+    prompt_delta = f"""
+    Available client side tools:
+        {json.dumps(tool_schemas, indent=2)}
+        
     IMPORTANT:
     - Use ONLY the client-side tools listed in the prompt above. Do not invent or reference any other tools.
     - Do not modify or expand any file paths provided in the prompt; pass them through verbatim as tool arguments.
@@ -103,4 +109,4 @@ def add_tool_directive(prompt: str):
     ```
     """
 
-    return "You should help me with this, please:\n" + prompt + "\n" + prompt_delta
+    return "You should also take into account:\n" + prompt + "\n" + prompt_delta
