@@ -8,7 +8,7 @@ from langgraph.graph.state import CompiledStateGraph
 
 from generalist.dialer.core import MLFlowLLMWrapper, LLMResponse
 from generalist.tools import ToolOutputType, get_tool_type, BaseTool
-from generalist.tools.data_model import Message, ShortAnswer
+from generalist.tools.types import Message, ShortAnswer
 from clog import get_logger
 from generalist.agents.workflows.tasks.reflection_evaluation import evaluate_task_completion
 from generalist.agents.workflows.tasks.plan_action import plan_next_action

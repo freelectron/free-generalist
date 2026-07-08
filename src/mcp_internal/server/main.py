@@ -1,8 +1,89 @@
+import asyncio
+import atexit
+import os
+import threading
+from dataclasses import asdict, is_dataclass
+
+from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 
 from clog import get_logger
 
 logger = get_logger(__name__)
+
+# WebSearchTool drives one Chrome driver/tab, and the browser-LLM
+# (LLMBrowserServer) shares that same driver. Concurrent web_search calls would
+# clobber the driver's active tab/state, so they must be serialized.
+_chrome_lock = threading.Lock()
+
+# IMPORTANT: in the MCP Python SDK the `lifespan` is NOT process-wide. With the
+# streamable-http transport, StreamableHTTPSessionManager calls the low-level
+# Server.run() once PER SESSION, and Server.run() is what enters/exits the
+# lifespan (mcp/server/lowlevel/server.py: Server.run -> AsyncExitStack). So each
+# new client session (each `initialize` handshake) re-enters lifespan and, on
+# disconnect, tears it down. Building ChromeBrowser inside lifespan therefore
+# spawns a new browser on every session (every request when the client
+# reconnects) and quits it when the session ends.
+#
+# Fix: own the expensive browser at module scope (one per process) and have the
+# per-session lifespan just hand out references. Teardown happens via atexit.
+_shared_lock = threading.Lock()
+_shared: dict | None = None
+
+
+def _build_shared() -> dict:
+    import mlflow
+    from browser import ChromeBrowser
+    from browser.search.web import BraveBrowser
+    from generalist.dialer.core import LLMBrowserServer, MLFlowLLMWrapper
+    from generalist.tools import WebSearchTool
+
+    load_dotenv()
+    assert os.getenv("CHROME_USER_DATA_DIR"), "CHROME_USER_DATA_DIR env var is required"
+    mlflow.set_experiment("mcp_web_search")
+
+    chrome_browser = ChromeBrowser()
+    llm = MLFlowLLMWrapper(llm_instance=LLMBrowserServer(chrome_browser))
+    search_session = BraveBrowser(browser=chrome_browser, session_id="mcp_brave")
+    tool = WebSearchTool(search_session=search_session, llm=llm)
+
+    shared = {"chrome_browser": chrome_browser, "tool": tool, "lock": _chrome_lock}
+    atexit.register(_teardown_shared, shared)
+    logger.info("Built shared Chrome browser + WebSearchTool (once per process)")
+    return shared
+
+
+def _teardown_shared(shared: dict) -> None:
+    try:
+        shared["chrome_browser"].driver.quit()
+    except Exception as e:
+        logger.error(f"Failed to quit Chrome driver on shutdown: {e}")
+
+
+def _get_shared() -> dict:
+    global _shared
+    with _shared_lock:
+        if _shared is None:
+            _shared = _build_shared()
+        return _shared
+
+
+def _jsonable(results: list[dict]) -> list[dict]:
+    """Make WebSearchTool.run()'s raw output JSON-serializable.
+
+    run() returns items shaped as {"search_result": WebSearchResult, "content": str}.
+    WebSearchResult is a dataclass, which the MCP result serializer cannot handle
+    directly. We convert it to a plain dict, preserving the raw structure.
+    """
+    out = []
+    for item in results:
+        new_item = dict(item)
+        search_result = new_item.get("search_result")
+        if is_dataclass(search_result) and not isinstance(search_result, type):
+            new_item["search_result"] = asdict(search_result)
+        out.append(new_item)
+    return out
+
 
 mcp = FastMCP(
     name="free-generalist-mcp",
@@ -19,7 +100,29 @@ def sum_two_numbers(a: int, b: int) -> int:
     return a + b
 
 
+@mcp.tool()
+async def web_search(question: str) -> list[dict]:
+    """Searches the web and downloads page content for a given question.
+
+    Args:
+        question: The user's query or question.
+    """
+    shared = _get_shared()
+    tool = shared["tool"]
+    lock = shared["lock"]
+    logger.info(f"web_search called with question={question!r}")
+
+    def _run_blocking() -> list[dict]:
+        with lock:
+            return _jsonable(tool.run(question=question))
+
+    # tool.run() does blocking I/O (selenium + crawl4ai) so in order to not block FastMCP's event loop,
+    # offload it to a worker thread.
+    return await asyncio.to_thread(_run_blocking)
+
+
 def run_server(host: str = "127.0.0.1", port: int = 9000):
+    _get_shared()
     mcp.settings.host = host
     mcp.settings.port = port
     logger.info(f"Starting MCP server on http://{host}:{port}{mcp.settings.streamable_http_path}")

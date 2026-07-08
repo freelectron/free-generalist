@@ -1,10 +1,9 @@
 import inspect
 import json
 import os
-from abc import ABC
-from typing import Callable, get_origin, Union, get_args, get_type_hints
+from abc import ABC, abstractmethod
+from typing import Callable
 
-import ollama
 import litellm
 import mlflow
 import requests
@@ -20,10 +19,9 @@ logger = get_logger(__name__)
 REQUEST_TIMEOUT = 180
 LOCAL_OLLAMA_QWEN_MODEL_NAME = "qwen2.5:14b"
 ZAI_DEFAULT_MODEL = "glm-5.2"
-# GLM Coding Plan uses a dedicated endpoint, separate from the pay-as-you-go one
-# (https://api.z.ai/api/paas/v4). Pointing litellm at this base is what bills against
-# your coding-plan quota instead of the pay-as-you-go balance.
 ZAI_CODING_PLAN_API_BASE = "https://api.z.ai/api/coding/paas/v4"
+# Must match mcp.settings.streamable_http_path on the server (FastMCP default is /mcp)
+DEFAULT_MCP_URI = "http://localhost:9000/mcp"
 
 
 class LLMToolCall:
@@ -43,43 +41,88 @@ class LLMResponse:
         return f"LLMResponse({self.text}) with {str(self.tool_call)}"
 
 
-class LLMToolsExecutor(ABC):
+class LLMAPI(ABC):
     """
-    Base class for interacting with LLM API's.
+    Defines what methods should be available in for backend LLM interactions only.
     """
-    # TODO: replace in the children
-    model: str  = "placeholder"
+    model: str = "unknown"
 
+    @abstractmethod
+    def complete(self, *args, **kwargs) -> LLMResponse:
+        ...
+
+
+class LLMToolsExecutor(LLMAPI):
+    """
+    Defines what methods should be available for user facing tasks.
+
+    Shared MCP plumbing lives here so both LLMZaiDialer and LLMBrowserDialer can
+    optionally expose tools from an MCP server. The connection is fail-safe: if
+    the server is unreachable (or mcp_uri is None), the dialer continues to work
+    with local tools only.
+    """
+
+    def __init__(self, mcp_uri: str | None = DEFAULT_MCP_URI):
+        self._init_mcp(mcp_uri)
+
+    def _init_mcp(self, mcp_uri: str | None) -> None:
+        """Optionally connect to the MCP server and load its tools (fail-safe)."""
+        self._mcp_uri = mcp_uri
+        self._mcp_session = None
+        self.mcp_tools: list = []
+        if not mcp_uri:
+            logger.info("MCP disabled (mcp_uri=None); continuing with local tools only.")
+            return
+        try:
+            self._mcp_session = MCPConnection(mcp_uri)
+            self.mcp_tools = self._mcp_session.list_tools()
+            logger.info(f"MCP connected at {mcp_uri}: {len(self.mcp_tools)} tools available.")
+        except Exception as e:
+            logger.warning(f"MCP unavailable at {mcp_uri}, continuing without MCP tools: {e}")
+            self._mcp_session = None
+            self.mcp_tools = []
+
+    def _is_mcp_tool(self, tool_name: str) -> bool:
+        return self._mcp_session is not None and tool_name in [
+            t["function"]["name"] for t in self.mcp_tools
+        ]
+
+    def _call_mcp_tool(self, tool_name: str, arguments) -> str:
+        """Call an MCP tool by name. `arguments` may be a dict or a JSON string."""
+        if self._mcp_session is None:
+            raise RuntimeError(f"Cannot call MCP tool '{tool_name}': no MCP session")
+        openai_tool_call = {"function": {"name": tool_name, "arguments": arguments}}
+        return self._mcp_session.call_tool(openai_tool_call)
+
+    @abstractmethod
     def complete(self, prompt: str, *args, **kwargs) -> LLMResponse:
-        """
-        Just answer the prompt
-        """
-        raise NotImplementedError
+        ...
 
+    @abstractmethod
     def complete_and_call(self, prompt: str, tools: list[Callable], *args, **kwargs) -> LLMResponse:
-        """
-        First predicts if we need to use a tool from `tools` based on the `prompt`.
-        If yes, calls the tool and returns the result.
-        """
-        raise NotImplementedError
+        ...
 
 
-class LLMBrowserServer:
-    """ Parse out the tool call and return it separately without executing. """
+class LLMBrowserServer(LLMAPI):
+    """
+    Primary methods for what an LLM API server.
+    """
+    model: str = "browser"
+
     def __init__(self, browser: ChromeBrowser):
         self.llm = LLMBrowser(browser)
 
-    def complete(self, prompt: str):
+    def complete(self, prompt: str) -> LLMResponse:
         answer = self.llm.call(prompt)
-
-        return answer
+        return LLMResponse(answer)
 
 
 class LLMBrowserDialer(LLMToolsExecutor):
     """ Also executes tools that are returned by an LLM. """
-    def __init__(self, host: str, port: int, auth_token: str):
+    def __init__(self, host: str, port: int, auth_token: str, mcp_uri: str | None = DEFAULT_MCP_URI):
         self._api_base = f"http://{host}:{port}"
         self._auth_token = auth_token
+        super().__init__(mcp_uri=mcp_uri)
 
     def complete(self, prompt: str, *args, **kwargs) -> LLMResponse:
         resp = requests.post(
@@ -91,15 +134,18 @@ class LLMBrowserDialer(LLMToolsExecutor):
         return LLMResponse(json.loads(resp.json())["message"]["content"])
 
     def complete_and_call(self, prompt: str, tools: list, *args, **kwargs) -> LLMResponse:
-        prompt_formatted = add_tool_directive(prompt, tools)
+        prompt_formatted = add_tool_directive(prompt, tools, extra_schemas=self.mcp_tools)
         answer = self.complete(prompt=prompt_formatted)
-        tool_call = parse_out_tool_call(answer.text)
+        tool_call = parse_out_tool_call(answer.text or "")
         if tool_call:
-            available_tools = {tool.name: tool for tool in tools}
             tool_name = tool_call["function"]["name"]
             tool_kwargs = tool_call["function"]["arguments"]
-            tool = available_tools.get(tool_name)
-            res_tool = tool.run(**tool_kwargs)
+            if self._is_mcp_tool(tool_name):
+                res_tool = self._call_mcp_tool(tool_name, tool_kwargs)
+            else:
+                available_tools = {tool.name: tool for tool in tools}
+                tool = available_tools.get(tool_name)
+                res_tool = tool.run(**tool_kwargs)
             answer.tool_call = LLMToolCall(tool_name, res_tool)
 
         return answer
@@ -124,22 +170,15 @@ class LLMZaiDialer(LLMToolsExecutor):
         api_key: str = None,
         request_timeout: int = REQUEST_TIMEOUT,
         api_base: str = ZAI_CODING_PLAN_API_BASE,
+        mcp_uri: str | None = DEFAULT_MCP_URI,
     ):
         self.model = model
         self._api_key = api_key or os.getenv("ZAI_API_KEY")
         self._timeout = request_timeout
         self._api_base = api_base
-
-        # TODO: separate this into a method, make optional and fail-safe
-        # Must match mcp.settings.streamable_http_path on the server (FastMCP default is /mcp)
-        self._mcp_uri = "http://localhost:9000/mcp"
-        self._mcp_session = MCPConnection(self._mcp_uri)
-        self.mcp_tools = self._mcp_session.list_tools()
+        super().__init__(mcp_uri=mcp_uri)
 
     def _completion(self, prompt: str, **kwargs):
-        # Use litellm's openai/ prefix with an explicit api_base so the request hits the
-        # coding-plan endpoint directly, instead of litellm's zai/ handler (standard endpoint).
-        # Returns the raw litellm response so callers can read native message.tool_calls.
         return litellm.completion(
             model=f"openai/{self.model}",
             api_base=self._api_base,
@@ -166,8 +205,8 @@ class LLMZaiDialer(LLMToolsExecutor):
             available_tools = {tool.name: tool for tool in tools}
             tc = tool_calls[0]
             tool_name = tc.function.name
-            if tool_name in [ t["function"]["name"] for t in self.mcp_tools]:
-                tool_res = self._mcp_session.call_tool(tc)
+            if self._is_mcp_tool(tool_name):
+                tool_res = self._call_mcp_tool(tool_name, tc.function.arguments)
             else:
                 tool = available_tools.get(tool_name)
                 tool_args = json.loads(tc.function.arguments)
@@ -179,13 +218,14 @@ class LLMZaiDialer(LLMToolsExecutor):
             return LLMResponse(message.content)
 
 
+# TODO: should wrap both server and tools execution classes consistently
 # Note: only needed to get traces and logs
 class MLFlowLLMWrapper:
     """
     Generic class to wrap calls to llm with MLFlow logging.
     Use this class for debugging LLM calls, monkeypatch the original
     """
-    def __init__(self, llm_instance: LLMToolsExecutor):
+    def __init__(self, llm_instance: LLMAPI):
         self.llm = llm_instance
 
     def complete(self, prompt: str, **kwargs) -> LLMResponse:
@@ -205,7 +245,7 @@ class MLFlowLLMWrapper:
 
             mlflow.log_text(prompt, f"prompt_{caller_function}.txt")
             mlflow.log_text(str(raw_response.text), f"response_{caller_function}.txt")
-            
+
             return raw_response
 
     def complete_and_call(self, prompt:str, tools:list, **kwargs) -> LLMResponse:
@@ -243,6 +283,6 @@ if __name__ == "__main__":
 
     litellm._turn_on_debug()
     dialer = LLMZaiDialer()
-    prompt = "do 5 + 2317"
+    prompt = "go online and dowload the latest nature news "
     tools = []
     print(dialer.complete_and_call(prompt=prompt, tools=tools))

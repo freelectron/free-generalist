@@ -5,7 +5,7 @@ from langgraph.graph.state import CompiledStateGraph
 
 from generalist.agents.workflows.workflow_base import AgentState, AgentWorkflow
 from generalist.tools import ToolOutputType
-from generalist.tools.data_model import Message
+from generalist.tools.types import Message
 from clog import get_logger
 
 

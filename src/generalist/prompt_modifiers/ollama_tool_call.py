@@ -69,8 +69,11 @@ def tool_to_llm_schema(tool) -> dict:
         },
     }
 
-def add_tool_directive(prompt: str, tools: list):
+def add_tool_directive(prompt: str, tools: list, extra_schemas: list[dict] | None = None):
     tool_schemas = [tool_to_llm_schema(tool) for tool in tools]
+    if extra_schemas:
+        # Pre-built OpenAI-format schemas (e.g. MCP tools) merged verbatim.
+        tool_schemas = tool_schemas + list(extra_schemas)
 
     prompt_delta = f"""
     Available client side tools:

@@ -18,7 +18,7 @@ from langgraph.graph import StateGraph, START, END
 # Import your project modules - adjust these imports based on your actual package structure
 try:
     from generalist.agents.core import AgentPlan, AgentDeepWebSearch, AgentUnstructuredDataProcessor, AgentCodeWriterExecutor
-    from generalist.tools.data_model import ShortAnswer, Message
+    from generalist.tools.types import ShortAnswer, Message
     from generalist.tools.planning import determine_next_step, parse_out_resource_link
     from generalist.agents.workflows.tasks.reflection_evaluation import construct_short_answer, summarise_findings
     from browser import BRAVE_SEARCH_SESSION

@@ -45,14 +45,14 @@ async def _chat_completions_stream_answer(answer: str) -> AsyncGenerator[str, No
     yield _chat_completions_sse_done(created)
 
 async def handle_chat_completions(req: dict[str, Any], llm: LLMBrowserServer):
-    response = llm.complete(str(req["body"]["messages"]))
-
-    logger.info(f"[LLM] Response:\n{response}")
+    llm_response = llm.complete(str(req["body"]["messages"]))
+    content = llm_response.text or ""
+    logger.info(f"[LLM] Response:\n{content}")
 
     # server side streaming
     if req["body"].get('stream', False):
         return StreamingResponse(
-            _chat_completions_stream_answer(response),
+            _chat_completions_stream_answer(content),
             media_type='text/event-stream',
         )
 
@@ -66,7 +66,7 @@ async def handle_chat_completions(req: dict[str, Any], llm: LLMBrowserServer):
                 'index': 0,
                 'message': {
                     'role': 'assistant',
-                    'content': response,
+                    'content': content,
                 },
                 'finish_reason': 'stop',
             }
@@ -127,14 +127,14 @@ async def _api_chat_stream_answer(answer: str) -> AsyncGenerator[str, None]:
     yield _api_chat_sse_done(created)
 
 async def handle_api_chat(req: dict, llm: LLMBrowserServer):
-    response = llm.complete(str(req["body"]["messages"]))
-
-    logger.info(f"[LLM] Response:\n{response}")
+    llm_response = llm.complete(str(req["body"]["messages"]))
+    content = llm_response.text or ""
+    logger.info(f"[LLM] Response:\n{content}")
 
     # SSE = server side streaming
     if req["body"].get('stream'):
         return StreamingResponse(
-            _api_chat_stream_answer(response),
+            _api_chat_stream_answer(content),
             media_type='text/event-stream',
         )
 
@@ -143,7 +143,7 @@ async def handle_api_chat(req: dict, llm: LLMBrowserServer):
         'model': MODEL_NAME_BROWSER,
         'message': {
             "role": "assistant",
-            "content": response,
+            "content": content,
         },
         "done": True,
         "done_reason": "stop",

@@ -9,7 +9,7 @@ from ..tools.code import TableEdaTool, WriteCodeTool, ExecuteCodeTool
 from ..tools.file_handling import ReadFileTool, ListFilesTool, FindFileTool, GrepFilesTool, \
     CreateReplaceFileContentsTool, CreateFile
 from ..tools.web_search import WebSearchTool
-from ..tools.data_model import Message
+from ..tools.types import Message
 from clog import get_logger
 from ..tools.text_processing.utils import read_local_file
 
