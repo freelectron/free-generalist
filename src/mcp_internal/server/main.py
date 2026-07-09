@@ -150,7 +150,9 @@ def run_server(
         "dialer_token": dialer_token,
     }
     _get_shared()
-    mcp.settings.host = host
+    # None disables FastMCP's Host-header validation, allowing connections from
+    # any IP. Uvicorn still binds to `host`!
+    mcp.settings.host = None
     mcp.settings.port = port
     logger.info(f"Starting MCP server on http://{host}:{port}{mcp.settings.streamable_http_path}")
     mcp.run(transport="streamable-http")

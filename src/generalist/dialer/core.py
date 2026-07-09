@@ -21,7 +21,7 @@ LOCAL_OLLAMA_QWEN_MODEL_NAME = "qwen2.5:14b"
 ZAI_DEFAULT_MODEL = "glm-5.2"
 ZAI_CODING_PLAN_API_BASE = "https://api.z.ai/api/coding/paas/v4"
 # Must match mcp.settings.streamable_http_path on the server (FastMCP default is /mcp)
-DEFAULT_MCP_URI = "http://localhost:9000/mcp"
+DEFAULT_MCP_URI = "http://localhost:7000/mcp"
 
 
 class LLMToolCall:
@@ -283,7 +283,14 @@ if __name__ == "__main__":
     # print(dialer.complete_and_call(prompt, tools=[BT]))
 
     litellm._turn_on_debug()
-    dialer = LLMZaiDialer()
-    prompt = "go online and dowload the latest nature news "
+
+    mcp_host = os.getenv("MCP_SERVER_ENDPOINT")
+    assert mcp_host
+    mcp_port = 7000
+    mcp_uri = os.path.join(mcp_host + f":{mcp_port}", "mcp")
+    # mcp_uri = DEFAULT_MCP_URI
+
+    dialer = LLMZaiDialer(mcp_uri=mcp_uri)
+    prompt = "go online and download the latest nature news"
     tools = []
     print(dialer.complete_and_call(prompt=prompt, tools=tools))
