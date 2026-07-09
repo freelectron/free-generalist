@@ -30,12 +30,14 @@ _chrome_lock = threading.Lock()
 _shared_lock = threading.Lock()
 _shared: dict | None = None
 
+DEFAULT_SERVE_PORT = 7000
 
-def _build_shared() -> dict:
+
+def _build_shared(llm_mode: str, dialer_host: str, dialer_port: int, dialer_token: str) -> dict:
     import mlflow
     from browser import ChromeBrowser
     from browser.search.web import BraveBrowser
-    from generalist.dialer.core import LLMBrowserServer, MLFlowLLMWrapper
+    from generalist.dialer.core import LLMBrowserDialer, LLMBrowserServer, MLFlowLLMWrapper
     from generalist.tools import WebSearchTool
 
     load_dotenv()
@@ -43,7 +45,15 @@ def _build_shared() -> dict:
     mlflow.set_experiment("mcp_web_search")
 
     chrome_browser = ChromeBrowser()
-    llm = MLFlowLLMWrapper(llm_instance=LLMBrowserServer(chrome_browser))
+
+    if llm_mode == "dialer":
+        llm_instance = LLMBrowserDialer(host=dialer_host, port=dialer_port, auth_token=dialer_token)
+        logger.info(f"Using LLMBrowserDialer -> http://{dialer_host}:{dialer_port}")
+    else:
+        llm_instance = LLMBrowserServer(chrome_browser)
+        logger.info("Using LLMBrowserServer (local Chrome)")
+
+    llm = MLFlowLLMWrapper(llm_instance=llm_instance)
     search_session = BraveBrowser(browser=chrome_browser, session_id="mcp_brave")
     tool = WebSearchTool(search_session=search_session, llm=llm)
 
@@ -60,11 +70,14 @@ def _teardown_shared(shared: dict) -> None:
         logger.error(f"Failed to quit Chrome driver on shutdown: {e}")
 
 
+_shared_build_kwargs: dict = {}
+
+
 def _get_shared() -> dict:
     global _shared
     with _shared_lock:
         if _shared is None:
-            _shared = _build_shared()
+            _shared = _build_shared(**_shared_build_kwargs)
         return _shared
 
 
@@ -121,7 +134,21 @@ async def web_search(question: str) -> list[dict]:
     return await asyncio.to_thread(_run_blocking)
 
 
-def run_server(host: str = "127.0.0.1", port: int = 9000):
+def run_server(
+    host: str,
+    port: int,
+    llm_mode: str,
+    dialer_host: str,
+    dialer_port: int,
+    dialer_token: str,
+):
+    global _shared_build_kwargs
+    _shared_build_kwargs = {
+        "llm_mode": llm_mode,
+        "dialer_host": dialer_host,
+        "dialer_port": dialer_port,
+        "dialer_token": dialer_token,
+    }
     _get_shared()
     mcp.settings.host = host
     mcp.settings.port = port
@@ -130,4 +157,27 @@ def run_server(host: str = "127.0.0.1", port: int = 9000):
 
 
 if __name__ == "__main__":
-    run_server()
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Free-generalist MCP server")
+    parser.add_argument("--host", default="0.0.0.0", help="Host to bind (use 0.0.0.0 to accept remote connections)")
+    parser.add_argument("--port", type=int, default=DEFAULT_SERVE_PORT, help="Port to serve on")
+    parser.add_argument(
+        "--llm-mode",
+        choices=["server", "dialer"],
+        default="server",
+        help="'server' = LLMBrowserServer (local Chrome); 'dialer' = LLMBrowserDialer (remote HTTP)",
+    )
+    parser.add_argument("--dialer-host", default="localhost", help="LLMBrowserDialer target host")
+    parser.add_argument("--dialer-port", type=int, default=8000, help="LLMBrowserDialer target port")
+    parser.add_argument("--dialer-token", default="", help="LLMBrowserDialer auth token")
+    args = parser.parse_args()
+
+    run_server(
+        host=args.host,
+        port=args.port,
+        llm_mode=args.llm_mode,
+        dialer_host=args.dialer_host,
+        dialer_port=args.dialer_port,
+        dialer_token=args.dialer_token,
+    )

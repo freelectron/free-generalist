@@ -131,6 +131,7 @@ class LLMBrowserDialer(LLMToolsExecutor):
             headers={"Authorization": f"Bearer {self._auth_token}"},
         )
         resp.raise_for_status()
+
         return LLMResponse(json.loads(resp.json())["message"]["content"])
 
     def complete_and_call(self, prompt: str, tools: list, *args, **kwargs) -> LLMResponse:
