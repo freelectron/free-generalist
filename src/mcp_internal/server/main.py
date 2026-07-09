@@ -101,8 +101,8 @@ def _jsonable(results: list[dict]) -> list[dict]:
 mcp = FastMCP(
     name="free-generalist-mcp",
     instructions="Local MCP server exposing simple utility tools.",
-    host="127.0.0.1",
-    port=9000,
+    host="0.0.0.0",
+    port=DEFAULT_SERVE_PORT,
 )
 
 
