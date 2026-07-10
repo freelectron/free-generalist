@@ -87,28 +87,28 @@ def add_tool_directive(prompt: str, tools: list, extra_schemas: list[dict] | Non
 
     Required output format (substitute <tool_name> and arguments with values from an available tool):
     ```json
-    {
-        "function": {
+    {{
+        "function": {{
             "name": "<tool_name>",
-            "arguments": {
+            "arguments": {{
                 "<param_1>": "<value_1>",
                 "<param_2>": "<value_2>"
-            }
-        }
-    }
+            }}
+        }}
+    }}
     ```
 
     Example (assuming the available tool `get_weather` accepts `city` and `units`):
     ```json
-    {
-        "function": {
+    {{
+        "function": {{
             "name": "get_weather",
-            "arguments": {
+            "arguments": {{
                 "city": "Amsterdam",
                 "units": "celsius"
-            }
-        }
-    }
+            }}
+        }}
+    }}
     ```
     """
 

@@ -89,7 +89,7 @@ class AgentDeepWebSearch(BaseAgent):
 class AgentCodeWriterExecutor(BaseAgent):
     """Capability for writing and executing code"""
     name = "code_writing_execution"
-    capability = "can write programming code, also execute only python code"
+    capability = "you can read and write any programming code, but only execute python code"
     agent_state = None
 
     def __init__(self, activity: str, llm: MLFlowLLMWrapper, tools: list[BaseTool]|None = None):

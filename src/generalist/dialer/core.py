@@ -291,6 +291,6 @@ if __name__ == "__main__":
     # mcp_uri = DEFAULT_MCP_URI
 
     dialer = LLMZaiDialer(mcp_uri=mcp_uri)
-    prompt = "go online and download the latest nature news"
+    prompt = "search online for the hottest financial news"
     tools = []
     print(dialer.complete_and_call(prompt=prompt, tools=tools))
