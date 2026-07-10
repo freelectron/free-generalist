@@ -10,10 +10,8 @@ from generalist.dialer.core import MLFlowLLMWrapper, LLMResponse
 from generalist.tools import ToolOutputType, get_tool_type, BaseTool
 from generalist.tools.types import Message, ShortAnswer
 from clog import get_logger
-from generalist.agents.workflows.tasks.reflection_evaluation import evaluate_task_completion
-from generalist.agents.workflows.tasks.plan_action import plan_next_action
+from generalist.agents.workflows.tasks.reason_and_plan import reason_and_plan
 from generalist.agents.workflows.tasks.execute_tool import call_tool
-from generalist.agents.workflows.tasks.reflect import reflect_on_progress
 
 
 MAX_STEPS = 12
@@ -35,7 +33,7 @@ class AgentState(TypedDict):
         context: Current context from previous steps
         step: Count of how many cycles (LLM + tool call) have been performed
         plan: Current plan or reasoning about what to do next
-        reflection: Reflection on the last tool output and next steps
+        is_complete: Whether the task has been accomplished (set by reason_and_plan)
     """
     # Description of what us asked from an agent
     task: str
@@ -45,8 +43,8 @@ class AgentState(TypedDict):
     step: int
     # Output in the specific format from tool calling LLM
     tool_call_result: ExecuteToolOutput | None
-    # Summary of what has been done in the current iteration
-    reflection: str | None
+    # Whether the task is complete (judgment from the merged reasoning node)
+    is_complete: bool
     # All messages that were produced
     context: list[Message]
     # Summary of the progress to see if the task has been achieved
@@ -86,21 +84,31 @@ class AgentWorkflow:
         self.agent_name = name
         self.agent_capability = agent_capability
         self.llm = llm
-        self.state = AgentState(step=0, task=task, context=context, answers=None, plan=None, reflection=None)
+        self.state = AgentState(step=0, task=task, context=context, answers=None, plan=None, is_complete=False)
         self.tools = tools if tools else self.tools
 
-    def plan_action(self, state: AgentState):
-        """Planning node: Reason about what to do next before executing tools."""
-        state["plan"] = plan_next_action(
+    def reason_and_plan(self, state: AgentState):
+        """Merged node: reflect on progress, evaluate completion, and plan the next action.
+
+        On the cold-start iteration (step == 0, no tool run yet) it only plans;
+        afterwards it reflects on the latest tool output first. Completion is
+        judged in the same call and stored in state for the pure-code router.
+        """
+        result = reason_and_plan(
             task=state["task"],
             context=str(state["context"]),
             agent_capability=self.agent_capability,
             tools=self.tools,
-            previous_reflection=state.get("reflection"),
             llm=self.llm,
+            has_prior_output=state["step"] > 0,
         )
+        state["plan"] = result.plan or None
+        state["is_complete"] = result.is_complete
 
-        logger.info(f"[{self.agent_name}] Step_{state['step']}. Plan: {state['plan']}")
+        logger.info(
+            f"[{self.agent_name}] Step_{state['step']}. "
+            f"Reasoning: complete={result.is_complete}, plan={result.plan}"
+        )
         return state
 
     def execute_tool(self, state: AgentState):
@@ -117,11 +125,12 @@ class AgentWorkflow:
 
         if response.tool_call:
             tool_name = response.tool_call.tool_name
-            state["tool_call_result"] = ExecuteToolOutput(name=tool_name, type=get_tool_type(tool_name), output=str(response))
+            tool_output = str(response.tool_call.tool_output or "")
+            state["tool_call_result"] = ExecuteToolOutput(name=tool_name, type=get_tool_type(tool_name), output=tool_output)
         else:
             # TODO: is there a way to handle no-tool-call better?
             logger.warning(f"No tool was called, response: {response}")
-            state["tool_call_result"] = ExecuteToolOutput(name="No tool executed", type=None, output=str(response))
+            state["tool_call_result"] = ExecuteToolOutput(name="No tool executed", type=None, output=response.text or "")
 
         state["step"] += 1
 
@@ -157,22 +166,13 @@ class AgentWorkflow:
 
         return state
 
-    def reflect(self, state: AgentState):
-        """Reflection node: Analyze the tool output and determine next steps."""
-        state["reflection"] = reflect_on_progress(
-            task=state["task"],
-            context=str(state["context"]),
-            agent_capability=self.agent_capability,
-            llm=self.llm,
-        )
-
-        logger.info(f"[{self.agent_name}] Step_{state['step']}. Reflection: {state['reflection']}")
-        return state
-
     def evaluate_completion(self, state: AgentState):
-        decision = evaluate_task_completion(state["task"], str(state["context"]), self.agent_capability, llm=self.llm)
-        # Early stopping if answer exists
-        if decision.completed:
+        """Routing function (pure code, no LLM): decide continue vs end.
+
+        Completion is judged inside reason_and_plan; here we only act on it.
+        Subclasses may override this with their own code-based checks.
+        """
+        if state["is_complete"]:
             return "end"
 
         # Early stopping if maximum number of steps reached
@@ -185,24 +185,22 @@ class AgentWorkflow:
         """Builds and compiles the workflow graph."""
         workflow = StateGraph(state_schema=AgentState)
 
-        workflow.add_node("plan_action", self.plan_action)
+        workflow.add_node("reason_and_plan", self.reason_and_plan)
         workflow.add_node("execute_tool", self.execute_tool)
         workflow.add_node("process_tool_output", self.process_tool_output)
-        workflow.add_node("reflect", self.reflect)
 
-        # Define the flow: plan → execute → process → reflect → evaluate
-        workflow.add_edge(START, "plan_action")
-        workflow.add_edge("plan_action", "execute_tool")
-        workflow.add_edge("execute_tool", "process_tool_output")
-        workflow.add_edge("process_tool_output", "reflect")
+        # Flow: reason_and_plan → evaluate → execute → process → (loop back to reason_and_plan)
+        workflow.add_edge(START, "reason_and_plan")
         workflow.add_conditional_edges(
-            "reflect",
+            "reason_and_plan",
             self.evaluate_completion,
             {
-                "continue": "plan_action",
+                "continue": "execute_tool",
                 "end": END,
             }
         )
+        workflow.add_edge("execute_tool", "process_tool_output")
+        workflow.add_edge("process_tool_output", "reason_and_plan")
 
         self.graph = workflow.compile()
 

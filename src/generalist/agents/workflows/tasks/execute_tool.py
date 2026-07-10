@@ -23,7 +23,9 @@ def call_tool(
 
     Plan: {plan or ""}
 
-    Pick exactly ONE tool from the list above that best advances the plan.
+    You MUST call the specific tool named in the Plan above.
+    Do NOT re-reason from the task — follow the plan.
+    Pick exactly ONE tool.
     """
     response = llm.complete_and_call(prompt=prompt, tools=tools)
     logger.info(f"Tool called: {response.tool_call.tool_name if response.tool_call else 'none'}")

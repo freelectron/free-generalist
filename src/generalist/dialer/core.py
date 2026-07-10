@@ -112,7 +112,7 @@ class LLMBrowserServer(LLMAPI):
     def __init__(self, browser: ChromeBrowser):
         self.llm = LLMBrowser(browser)
 
-    def complete(self, prompt: str) -> LLMResponse:
+    def complete(self, prompt: str,**kwargs) -> LLMResponse:
         answer = self.llm.call(prompt)
         return LLMResponse(answer)
 
@@ -191,7 +191,7 @@ class LLMZaiDialer(LLMToolsExecutor):
 
     def complete(self, prompt: str, **kwargs) -> LLMResponse:
         result = self._completion(prompt, **kwargs)
-        return LLMResponse(result.choices[0].message.content)
+        return LLMResponse(result.choices[0].message.content or "")
 
     def complete_and_call(self, prompt: str, tools: list, **kwargs) -> LLMResponse:
         tool_schemas = [tool_to_llm_schema(tool) for tool in tools]
@@ -214,9 +214,9 @@ class LLMZaiDialer(LLMToolsExecutor):
                 tool_res = tool.run(**tool_args)
 
             tool_call = LLMToolCall(tool_name, tool_res)
-            return LLMResponse(message.content, tool_call)
+            return LLMResponse(text=message.content or "", tool_call=tool_call)
         else:
-            return LLMResponse(message.content)
+            return LLMResponse(text=message.content or "")
 
 
 # TODO: should wrap both server and tools execution classes consistently

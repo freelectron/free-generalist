@@ -43,7 +43,10 @@ class DeepWebSearchWorkflow(AgentWorkflow):
         )
 
     def evaluate_completion(self, state: AgentState):
-        if os.path.exists(state["context"][-1].link):
+        # evaluate_completion now also runs on the cold-start iteration (step 0),
+        # where context may be empty, so guard against that.
+        last_link = state["context"][-1].link if state["context"] else None
+        if last_link and os.path.exists(last_link):
             return "end"
 
         if state['step'] >= MAX_STEPS:
