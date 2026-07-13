@@ -123,14 +123,11 @@ class AgentWorkflow:
         if "Encountered error" in str(response):
             raise ValueError(f"Stopping early {response}")
 
+        state["tool_call_result"] = ExecuteToolOutput(name="No tool executed", type=None, output=response.text or "")
         if response.tool_call:
             tool_name = response.tool_call.tool_name
             tool_output = str(response.tool_call.tool_output or "")
             state["tool_call_result"] = ExecuteToolOutput(name=tool_name, type=get_tool_type(tool_name), output=tool_output)
-        else:
-            # TODO: is there a way to handle no-tool-call better?
-            logger.warning(f"No tool was called, response: {response}")
-            state["tool_call_result"] = ExecuteToolOutput(name="No tool executed", type=None, output=response.text or "")
 
         state["step"] += 1
 

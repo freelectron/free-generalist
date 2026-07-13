@@ -93,7 +93,7 @@ def reason_and_plan(
         )
 
     prompt = f"""
-    Role: {agent_capability}. Your capabilities are: {agent_capability}.
+    Role and agent capabilities: {agent_capability}.
 
     Task: {task}
 

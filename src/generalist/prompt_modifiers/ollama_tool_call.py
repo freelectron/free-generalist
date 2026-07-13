@@ -38,7 +38,7 @@ def python_type_to_json_schema(py_type):
 
 def tool_to_llm_schema(tool) -> dict:
     """
-    Ollama style function calling.
+    OpenAI-format style function calling.
     """
     sig = inspect.signature(tool.run)
     type_hints = get_type_hints(tool.run)
