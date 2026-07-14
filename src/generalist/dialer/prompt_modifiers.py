@@ -112,4 +112,4 @@ def add_tool_directive(prompt: str, tools: list, extra_schemas: list[dict] | Non
     ```
     """
 
-    return "You should also take into account:\n" + prompt + "\n" + prompt_delta
+    return prompt + "\n" + prompt_delta

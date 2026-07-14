@@ -11,16 +11,17 @@ import requests
 from browser import ChromeBrowser
 from browser.llm_browser import LLMBrowser
 from clog import get_logger
-from generalist.prompt_modifiers.ollama_tool_call import add_tool_directive, tool_to_llm_schema
-from generalist.prompt_modifiers.utils import parse_out_tool_call
+from generalist.dialer.prompt_modifiers import add_tool_directive, tool_to_llm_schema
+from generalist.dialer.utils import parse_out_tool_call
 from mcp_internal.client.session import MCPConnection
 
 logger = get_logger(__name__)
 REQUEST_TIMEOUT = 180
 ZAI_DEFAULT_MODEL = "glm-5.2"
 ZAI_CODING_PLAN_API_BASE = "https://api.z.ai/api/coding/paas/v4"
-# Must match mcp.settings.streamable_http_path on the server (FastMCP default is /mcp)
-DEFAULT_MCP_URI = "http://localhost:7000/mcp"
+# Must match mcp.settings.streamable_http_path on the server (FastMCP default is /mcp).
+# Override via MCP_SERVER_ENDPOINT in infra/services.env (e.g. for a remote MCP host).
+DEFAULT_MCP_URI = os.getenv("MCP_SERVER_ENDPOINT", "http://0.0.0.0:7000/mcp")
 
 
 class LLMToolCall:
@@ -166,7 +167,9 @@ class LLMZaiDialer(LLMToolsExecutor):
         model: bare ZAI model name, e.g. "glm-5.2" (see ZAI_DEFAULT_MODEL).
         api_key: ZAI API key (defaults to ZAI_API_KEY env var).
         request_timeout: per-request timeout in seconds.
-        api_base: OpenAI-compatible ZAI base URL.
+        api_base: OpenAI-compatible ZAI base URL. Defaults to the GLM Coding
+            Plan endpoint (direct, no proxy). To route through the LiteLLM proxy
+            (unified metrics on Prometheus), pass api_base=os.getenv("PROXY_ENDPOINT").
     """
     def __init__(
         self,
@@ -277,11 +280,10 @@ class MLFlowLLMWrapper:
 if __name__ == "__main__":
     litellm._turn_on_debug()
 
-    mcp_host = "http://0.0.0.0"  # os.getenv("MCP_SERVER_ENDPOINT")
-    assert mcp_host
-    mcp_port = 7000
-    mcp_uri = os.path.join(mcp_host + f":{mcp_port}", "mcp")
-    # dialer = LLMZaiDialer(api_base="http://0.0.0.0:4000",mcp_uri=mcp_uri)
+    # MCP endpoint resolved from MCP_SERVER_ENDPOINT (see infra/services.env).
+    mcp_uri = DEFAULT_MCP_URI
+    proxy_base = os.getenv("PROXY_ENDPOINT", "http://127.0.0.1:4000/v1")
+    # dialer = LLMZaiDialer(api_base=proxy_base, mcp_uri=mcp_uri)
     dialer = LLMBrowserDialer(host="0.0.0.0", port=4000, mcp_uri=mcp_uri)
 
     prompt = "search online for the hottest financial news"

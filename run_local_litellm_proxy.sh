@@ -7,6 +7,7 @@
 # manage provider keys. See infra/proxy/README.md for how to point clients at it.
 set -a
 source .env
+source infra/services.env
 set +a
 exec uv run --project infra/proxy litellm \
   --config infra/proxy/config.yaml \

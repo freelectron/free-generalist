@@ -1,7 +1,7 @@
 """
 uv run pytest tests/test_tools/test_parse_out_tool_call.py
 """
-from generalist.prompt_modifiers.utils import parse_out_tool_call
+from generalist.dialer.utils import parse_out_tool_call
 
 
 EXPECTED = {
