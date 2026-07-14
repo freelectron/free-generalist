@@ -1,116 +1,62 @@
-import json
 from contextlib import asynccontextmanager
 from typing import Annotated
 
 from fastapi import FastAPI, Request, Depends
 
 from generalist.dialer.core import LLMBrowserServer
-from .handlers import (
-    handle_chat_completions,
-    handle_models_list,
-    handle_embeddings, handle_api_chat,
-)
+from .handlers import handle_chat_completions
 from clog import get_logger
-
 
 logger = get_logger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Treat llm browser as a DB/RPC connection"""
-    # Should be first to load all the env vars for browser
     import os
     from dotenv import load_dotenv
     from browser import ChromeBrowser
     load_dotenv()
     assert os.getenv("CHROME_USER_DATA_DIR", None)
     chrome_browser = ChromeBrowser()
-
     llm = LLMBrowserServer(chrome_browser)
     assert llm
     app.state.llm = llm
     yield
     del llm
 
+
 def get_llm(request: Request) -> LLMBrowserServer:
     return request.app.state.llm
 
-# Llm is still a global var, now only create and delete handled within the api lifetime
-# we can just have it as global var too
+
 LLMDep = Annotated[LLMBrowserServer, Depends(get_llm)]
 
 app = FastAPI(
-    title="OpenAI-Compatible API",
+    title="OpenAI-Compatible Browser API",
     version="1.0.0",
     lifespan=lifespan,
 )
 
 
-def _build_full_request(request: Request, body: dict) -> dict:
-    full_request = {
-        "method": request.method,
-        "url": str(request.url),
-        "headers": dict(request.headers),
-        "query_params": dict(request.query_params),
-        "path_params": request.path_params,
-        "client": request.client if request.client else None,
-        "body": body,
-    }
-    return full_request
-
-
 @app.post("/v1/chat/completions")
 async def chat_completions(request: Request, llm: LLMDep):
     body = await request.json()
-
-    full_request = _build_full_request(request, body)
-    return await handle_chat_completions(full_request, llm)
-
-
-@app.post("/api/chat")
-async def api_chat(request: Request,  llm: LLMDep):
-    body = await request.json()
-
-    full_request = _build_full_request(request, body)
-
-    return await handle_api_chat(full_request, llm)
-
-
-@app.get("/api/tags")
-async def api_tags():
-    return {
-        "models": [
-            {
-                "name": "web",
-                "model": "web",
-                "modified_at": "2025-08-22T18:36:05.414739637+02:00",
-                "size": 8988124069,
-                "digest": "web",
-                "details": {
-                  "parent_model": "",
-                  "format": "gguf",
-                  "family": "web",
-                  "families": [
-                      "web"
-                  ],
-                  "parameter_size": "14.8B",
-                  "quantization_level": "Q4_K_M"
-                }
-            },
-        ]
-    }
+    return await handle_chat_completions({"body": body}, llm)
 
 
 @app.get("/v1/models")
 async def models_list():
-    return await handle_models_list()
-
-
-@app.post("/v1/embeddings")
-async def embeddings(request: Request):
-    body = await request.json()
-    return await handle_embeddings(body)
+    return {
+        "object": "list",
+        "data": [
+            {
+                "id": "web",
+                "object": "model",
+                "created": 0,
+                "owned_by": "browser",
+            }
+        ],
+    }
 
 
 @app.get("/health")
@@ -120,5 +66,4 @@ async def health():
 
 def run_server(host: str = "0.0.0.0", port: int = 8000):
     import uvicorn
-
     uvicorn.run(app, host=host, port=port)

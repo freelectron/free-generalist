@@ -44,12 +44,15 @@ def _build_shared(llm_mode: str, dialer_host: str, dialer_port: int, dialer_toke
     assert os.getenv("CHROME_USER_DATA_DIR"), "CHROME_USER_DATA_DIR env var is required"
     mlflow.set_experiment("mcp_web_search")
 
-    chrome_browser = ChromeBrowser()
-
     if llm_mode == "dialer":
+        # Use a separate profile for just web searching
+        assert os.getenv("CHROME_MCP_SEARCH_PROFILE"), "A separate Chrome profile must exist"
+        chrome_browser = ChromeBrowser(profile=os.getenv("CHROME_MCP_SEARCH_PROFILE"))
         llm_instance = LLMBrowserDialer(host=dialer_host, port=dialer_port, auth_token=dialer_token)
         logger.info(f"Using LLMBrowserDialer -> http://{dialer_host}:{dialer_port}")
     else:
+        # LLM and Browser share a Chrome profile
+        chrome_browser = ChromeBrowser()
         llm_instance = LLMBrowserServer(chrome_browser)
         logger.info("Using LLMBrowserServer (local Chrome)")
 
@@ -167,7 +170,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--llm-mode",
         choices=["server", "dialer"],
-        default="server",
+        default="dialer",
         help="'server' = LLMBrowserServer (local Chrome); 'dialer' = LLMBrowserDialer (remote HTTP)",
     )
     parser.add_argument("--dialer-host", default="localhost", help="LLMBrowserDialer target host")

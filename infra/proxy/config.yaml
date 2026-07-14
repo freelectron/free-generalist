@@ -1,0 +1,81 @@
+# =============================================================================
+# LiteLLM Proxy — generic "forward everything + capture metrics" configuration.
+#
+# Auth model: bring-your-own-key. The proxy does NOT manage provider keys.
+# Each caller (Claude Code, opencode, the repo's dialers, ...) must send a
+# valid upstream credential (`Authorization: Bearer ...` / `x-api-key`) which
+# is forwarded to the upstream via `forward_llm_provider_auth_headers`.
+#
+# Routing: provider-prefix wildcard routes forward any `<provider>/<model>`
+# request as-is, so no per-model wiring is needed to start. Add concrete
+# routes in the section at the bottom when you want aliases / custom bases.
+# =============================================================================
+
+model_list:
+  # Wildcard routes — the caller's model must be in litellm `provider/model`
+  # form (e.g. openai/glm-5.2, anthropic/claude-sonnet-4, ollama/qwen2.5:14b).
+  # No `api_key` is set: the caller's own credential is forwarded.
+  - model_name: "openai/*"
+    litellm_params:
+      model: "openai/*"
+  - model_name: "anthropic/*"
+    litellm_params:
+      model: "anthropic/*"
+  - model_name: "ollama/*"
+    litellm_params:
+      model: "ollama/*"
+  - model_name: "gemini/*"
+    litellm_params:
+      model: "gemini/*"
+  - model_name: "vertex_ai/*"
+    litellm_params:
+      model: "vertex_ai/*"
+  - model_name: "azure/*"
+    litellm_params:
+      model: "azure/*"
+  - model_name: "bedrock/*"
+    litellm_params:
+      model: "bedrock/*"
+
+  # --------------------------------------------------------------------------
+  # Concrete routes
+  # --------------------------------------------------------------------------
+  # ZAI/GLM dialer — no api_key here, the dialer sends its own ZAI_API_KEY
+  # which the BYOK hook forwards to the upstream.
+  - model_name: "glm-5.2"
+    litellm_params:
+      model: "openai/glm-5.2"
+      api_base: "https://api.z.ai/api/coding/paas/v4"
+
+  # Browser LLM (LLMBrowserServer via the api_server). The api_server already
+  # exposes an OpenAI-compatible /v1/chat/completions; the browser backend
+  # ignores auth, so no api_key is needed (the BYOK hook forwards the dialer's
+  # token, which the browser server disregards). Token usage is estimated by
+  # tiktoken inside src/api_server/handlers.py so metrics parity with glm-5.2.
+  - model_name: "fg/web"
+    litellm_params:
+      model: "openai/web"
+      api_base: "http://localhost:8000/v1"
+
+litellm_settings:
+  # Built-in `prometheus` callback mounts the `/metrics` endpoint and emits
+  # litellm's standard metrics. (Only listed once per list so the custom
+  # callback module below is imported exactly once.)
+  success_callback: ["prometheus"]
+  failure_callback: ["prometheus"]
+  # A CustomLogger registered via `callbacks` receives BOTH success and
+  # failure events (litellm treats `litellm.callbacks` as success+failure).
+  # It is resolved relative to this config file's directory, i.e.
+  # infra/proxy/metrics_callback.py.
+  callbacks: ["metrics_callback.origin_metrics_callback"]
+  # Drop params the upstream doesn't understand instead of erroring.
+  drop_params: true
+
+general_settings:
+  # Bring-your-own-key: forward the caller's Authorization / x-api-key to the
+  # upstream provider rather than the proxy managing its own provider keys.
+  forward_llm_provider_auth_headers: true
+  # Used only for litellm admin endpoints (/key/generate, /health/liveness,
+  # ...). Not enforced on /v1/chat/completions or /v1/messages when no
+  # virtual-key database is configured.
+  master_key: os.environ/LITELLM_MASTER_KEY

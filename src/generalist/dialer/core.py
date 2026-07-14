@@ -17,7 +17,6 @@ from mcp_internal.client.session import MCPConnection
 
 logger = get_logger(__name__)
 REQUEST_TIMEOUT = 180
-LOCAL_OLLAMA_QWEN_MODEL_NAME = "qwen2.5:14b"
 ZAI_DEFAULT_MODEL = "glm-5.2"
 ZAI_CODING_PLAN_API_BASE = "https://api.z.ai/api/coding/paas/v4"
 # Must match mcp.settings.streamable_http_path on the server (FastMCP default is /mcp)
@@ -119,20 +118,24 @@ class LLMBrowserServer(LLMAPI):
 
 class LLMBrowserDialer(LLMToolsExecutor):
     """ Also executes tools that are returned by an LLM. """
-    def __init__(self, host: str, port: int, auth_token: str, mcp_uri: str | None = DEFAULT_MCP_URI):
+    def __init__(self, host: str, port: int, auth_token: str|None = None, mcp_uri: str | None = DEFAULT_MCP_URI):
         self._api_base = f"http://{host}:{port}"
         self._auth_token = auth_token
         super().__init__(mcp_uri=mcp_uri)
 
     def complete(self, prompt: str, *args, **kwargs) -> LLMResponse:
         resp = requests.post(
-            f"{self._api_base}/api/chat",
-            json={"model": "web", "messages": [{"role": "user", "content": prompt}], "stream": False},
-            headers={"Authorization": f"Bearer {self._auth_token}"},
+            f"{self._api_base}/v1/chat/completions",
+            json={"model": "fg/web", "messages": [{"role": "user", "content": prompt}], "stream": False},
+            headers={
+                "Authorization": f"Bearer {self._auth_token}",
+                "X-Client-Origin": "browser-dialer",
+            },
+            timeout=REQUEST_TIMEOUT,
         )
         resp.raise_for_status()
-
-        return LLMResponse(json.loads(resp.json())["message"]["content"])
+        # by default one response choice is generated so choices[0], if A/B testing then len(choices)>1
+        return LLMResponse(resp.json()["choices"][0]["message"]["content"])
 
     def complete_and_call(self, prompt: str, tools: list, *args, **kwargs) -> LLMResponse:
         prompt_formatted = add_tool_directive(prompt, tools, extra_schemas=self.mcp_tools)
@@ -186,6 +189,7 @@ class LLMZaiDialer(LLMToolsExecutor):
             api_key=self._api_key,
             messages=[{"role": "user", "content": prompt}],
             timeout=self._timeout,
+            extra_headers={"X-Client-Origin": "zai-dialer"},
             **kwargs,
         )
 
@@ -271,26 +275,15 @@ class MLFlowLLMWrapper:
 
 
 if __name__ == "__main__":
-    # from generalist.tools.data_model import BaseTool
-    # dialer = LLMBrowserDialer(host="localhost", port=8000, auth_token="0000")
-    # prompt = "What was the capital of Prussia? Available tools:  1) 'get_capital' - get capital of the country, args: 'country' = specify the country."
-    # class BT(BaseTool):
-    #     name: "get_capital"
-    #     description: "Dummy"
-    #
-    #     def run(self):
-    #         print("OK")
-    # print(dialer.complete_and_call(prompt, tools=[BT]))
-
     litellm._turn_on_debug()
 
-    mcp_host = os.getenv("MCP_SERVER_ENDPOINT")
+    mcp_host = "http://0.0.0.0"  # os.getenv("MCP_SERVER_ENDPOINT")
     assert mcp_host
     mcp_port = 7000
     mcp_uri = os.path.join(mcp_host + f":{mcp_port}", "mcp")
-    # mcp_uri = DEFAULT_MCP_URI
+    # dialer = LLMZaiDialer(api_base="http://0.0.0.0:4000",mcp_uri=mcp_uri)
+    dialer = LLMBrowserDialer(host="0.0.0.0", port=4000, mcp_uri=mcp_uri)
 
-    dialer = LLMZaiDialer(mcp_uri=mcp_uri)
     prompt = "search online for the hottest financial news"
     tools = []
     print(dialer.complete_and_call(prompt=prompt, tools=tools))

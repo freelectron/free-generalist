@@ -1,0 +1,15 @@
+[project]
+name = "free-generalist-proxy"
+version = "0.1.0"
+description = "Standalone LiteLLM proxy with Prometheus metrics for the free-generalist project."
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "litellm[proxy]>=1.89.3",
+    "prometheus-client>=0.20",
+]
+
+# This is a runnable service, not an installable package: there is nothing to
+# build. uv treats it as a virtual project and installs the dependencies above
+# into a dedicated .venv under infra/proxy/.
+[tool.uv]
+package = false

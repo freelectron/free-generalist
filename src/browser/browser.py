@@ -55,7 +55,7 @@ class ChromeBrowser:
         self.logger = get_logger(name=self.__class__.__name__)
 
         self.chrome_user_data_dir = os.getenv("CHROME_USER_DATA_DIR", "./browser_cache")
-        default_profile_directory_name = os.getenv("CHROME_PROFILE", "Default")
+        default_profile_directory_name = os.getenv("CHROME_DEFAULT_PROFILE", "Default")
 
         self.options = self.get_default_options()
         self.profile = profile if profile else default_profile_directory_name

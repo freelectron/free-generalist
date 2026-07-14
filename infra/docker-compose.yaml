@@ -29,3 +29,40 @@ services:
       - "8081:8081"
     depends_on:
       - mongodb
+
+  # --------------------------------------------------------------------------
+  # LiteLLM proxy observability stack.
+  # The proxy itself runs on the host via ./run_local_litellm_proxy.sh (or run_local_litellm_proxy.sh from
+  # the repo root). These two services scrape its /metrics endpoint and
+  # visualise them. Start with:  docker compose up -d prometheus grafana
+  # --------------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: unless-stopped
+    volumes:
+      - ./proxy/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./proxy/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./proxy/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    depends_on:
+      - prometheus
+
+volumes:
+  prometheus-data:
+  grafana-data:
