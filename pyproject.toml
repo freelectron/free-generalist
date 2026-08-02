@@ -35,6 +35,7 @@ dependencies = [
     "crawl4ai>=0.8.6",
     "litellm>=1.89.3",
     "mcp>=1.26",
+    "fastmcp>=3.4.5",
 ]
 
 [dependency-groups]

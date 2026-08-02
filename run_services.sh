@@ -1,4 +1,4 @@
-#!/opt/homebrew/bin/bash
+#!/usr/bin/bash
 # =============================================================================
 # Combined launcher: start the API server, the LiteLLM proxy and the MCP server
 # together. Use this on whichever laptop hosts the services (local or remote).

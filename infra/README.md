@@ -18,7 +18,3 @@ cp .env.dev.example .env
 docker compose up -d
 ```
 
-
-## MongoDB 
-
-Implemented to store text info as key-value. 

@@ -1,4 +1,4 @@
-#!/opt/homebrew/bin/bash
+#!/usr/bin/bash
 # Launch the standalone LiteLLM proxy (forward-everything + Prometheus metrics).
 #
 # The proxy runs on the host (binds 0.0.0.0 so other machines on the LAN can
